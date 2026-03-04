@@ -14,7 +14,7 @@ interface BetterAuthLoginProps {
   className?: string;
 }
 
-export function BetterAuthLogin({ 
+export default function BetterAuthLogin({ 
   organizationName, 
   showOrgWarning, 
   forceSignUp = false,
@@ -289,4 +289,8 @@ export function BetterAuthLogin({
       )}
     </div>
   );
+}
+
+export function LoginPage() {
+  return <BetterAuthLogin />;
 }

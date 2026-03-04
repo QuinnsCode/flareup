@@ -62,6 +62,15 @@ interface FantasyCardProps {
   glowing?: boolean;
 }
 
+interface FantasyDeleteButtonProps {
+  onDelete: () => void;
+  itemName?: string;
+  isDeleting?: boolean;
+  disabled?: boolean;
+  size?: 'sm' | 'md' | 'lg';
+  className?: string;
+}
+
 /**
  * Modernized Card:
  * - Uses a deeper black background and more aggressive backdrop blur.

@@ -45,7 +45,7 @@ export async function autoCreateOrgMiddleware(
       });
 
       if (membership) {
-        const redirectUrl = buildOrgRedirectUrl(membership.organization.slug, request);
+        const redirectUrl = buildOrgRedirectUrl(membership.organization.slug ?? '', request);
         console.log('✅ [AUTO-REDIRECT] User has org, redirecting to:', redirectUrl);
         return new Response(null, {
           status: 302,
@@ -80,7 +80,7 @@ export async function autoCreateOrgMiddleware(
       // Invalidate membership cache with the actual org ID
       await invalidateMember(ctx.user.id, orgId);
 
-      const redirectUrl = buildOrgRedirectUrl(orgSlug, request);
+      const redirectUrl = buildOrgRedirectUrl(orgSlug || '', request);
 
       console.log('✅ [AUTO-ORG] Created and redirecting to:', redirectUrl);
       return new Response(null, {

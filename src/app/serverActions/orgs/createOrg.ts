@@ -128,11 +128,11 @@ export async function createOrganization(formData: FormData) {
       }
     };
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Create organization error:', error);
     return {
       success: false,
-      error: error.message || 'Failed to create organization'
+      error: (error as any).message || 'Failed to create organization'
     };
   }
 }

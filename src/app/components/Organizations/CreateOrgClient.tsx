@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { BetterAuthLogin } from "@/app/pages/user/BetterAuthLogin";
+import BetterAuthLogin from "@/app/pages/user/BetterAuthLogin";
 import { createOrganization } from "@/app/serverActions/orgs/createOrg";
 
 interface CreateOrgClientProps {
@@ -33,7 +33,7 @@ export function CreateOrgClient({ initialUser }: CreateOrgClientProps) {
       
       if (result.success) {
         console.log('✅ Organization created successfully, redirecting to:', result.redirectUrl);
-        window.location.href = result.redirectUrl;
+        window.location.href = result.redirectUrl!;
       } else {
         setError(result.error);
         setIsSubmitting(false);

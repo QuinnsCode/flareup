@@ -17,7 +17,7 @@ export const createAuth = () => {
     database: prismaAdapter(db, {
       provider: "sqlite",
     }),
-    secret: env.BETTER_AUTH_SECRET,
+    secret: (env as any).BETTER_AUTH_SECRET,
     baseURL: env.BETTER_AUTH_URL,
     emailAndPassword: {  
       enabled: true,
@@ -51,7 +51,7 @@ export const createAuth = () => {
         console.log('📧 Sending password reset email to:', user.email);
   
         // Use void to prevent timing attacks (don't await)
-        void resend.emails.send({
+        void resend!.emails.send({
           from: "QNTBR <no-reply@doubledragonsupply.com>",
           to: [user.email],
           subject: "Reset Your Password - QNTBR",
@@ -68,7 +68,7 @@ export const createAuth = () => {
         console.log(`✅ Password reset completed for user: ${user.email}`);
         
         // Optional: Send confirmation email
-        void resend.emails.send({
+        void resend!.emails.send({
           from: "QNTBR <no-reply@doubledragonsupply.com>",
           to: [user.email],
           subject: "Password Changed - QNTBR",

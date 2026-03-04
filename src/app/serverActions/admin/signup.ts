@@ -198,7 +198,7 @@ export async function signupWithOrg(formData: FormData) {
         name: org.name,
         slug: org.slug
       },
-      session: signUpResult.session // Pass session for client to use
+      session: (signUpResult as any).session // Pass session for client to use
     };
 
   } catch (error) {

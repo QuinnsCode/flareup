@@ -147,7 +147,7 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
 
         // Only update state if not aborted
         if (!controller.signal.aborted) {
-          const { available } = await response.json();
+          const { available } = await response.json() as any;
           setSlugAvailable(available);
         }
       } catch (error) {
@@ -249,7 +249,7 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
       console.log('✅ Signup successful:', result);
       
       // ✅ If paid tier selected, redirect to Lemon Squeezy checkout
-      if (selectedTier !== 'free' && result.userId) {
+      if (selectedTier !== 'free' && result?.user?.id) {
         setResult("Account created! Redirecting to checkout...");
         
         // Get variant ID based on tier
@@ -257,7 +257,7 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
           ? process.env.NEXT_PUBLIC_LEMON_SQUEEZY_STARTER_VARIANT_ID
           : process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID;
         
-        const checkoutUrl = `https://qntbr.lemonsqueezy.com/checkout/buy/${variantId}?checkout[email]=${encodeURIComponent(email)}&checkout[custom][user_id]=${result.userId}`;
+        const checkoutUrl = `https://qntbr.lemonsqueezy.com/checkout/buy/${variantId}?checkout[email]=${encodeURIComponent(email)}&checkout[custom][user_id]=${result?.user.id}`;
         
         setTimeout(() => {
           window.location.href = checkoutUrl;
@@ -268,7 +268,7 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
       // ✅ Free tier - redirect to their subdomain
       setResult("Account created! Redirecting to your lair...");
       setTimeout(() => {
-        window.location.href = result.redirectUrl;
+        window.location.href = result.redirectUrl!;
       }, 1500);
       
     } catch (error) {
@@ -546,7 +546,7 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
                           }
                         `}
                       >
-                        {tier.popular && (
+                        {(tier as any).popular && (
                           <div className="absolute -top-2 right-4 bg-amber-500 text-stone-900 px-2 py-0.5 rounded text-xs font-bold">
                             POPULAR
                           </div>
@@ -646,7 +646,6 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
                     !agreedToTerms
                   }
                   className="w-full"
-                  suppressHydrationWarning
                 >
                   {isPending 
                     ? "Creating your account..." 

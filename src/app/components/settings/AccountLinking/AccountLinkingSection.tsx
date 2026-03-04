@@ -28,13 +28,13 @@ export function AccountLinkingSection() {
 
       // Get user's linked accounts from session
       // better-auth includes accounts in the session data
-      const userAccounts = session.data.user.accounts || []
+      const userAccounts = (session.data?.user as any)?.accounts || []
 
       setAccounts(userAccounts.map((account: any) => ({
         id: account.id,
         providerId: account.providerId as ProviderType,
         accountId: account.accountId,
-        email: session.data.user.email,
+        email: session.data?.user.email,
         createdAt: new Date(account.createdAt)
       })))
     } catch (err) {

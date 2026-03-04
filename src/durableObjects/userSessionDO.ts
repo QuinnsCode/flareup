@@ -15,7 +15,7 @@
  * Cost: ~$0.75/month for 10k users (hibernates 99.9% of the time)
  */
 
-import type { DurableObject } from "cloudflare:workers";
+import { DurableObject } from "cloudflare:workers";
 
 interface UserSessionState {
   userId: string;
@@ -31,11 +31,12 @@ interface WebSocketMessage {
   deviceId?: string;
 }
 
-export class UserSessionDO implements DurableObject {
-  private state: DurableObjectState;
+export class UserSessionDO extends DurableObject {
   private userId: string | null = null;
-
+  private state: DurableObjectState;
+  
   constructor(state: DurableObjectState, env: Env) {
+    super(state, env);
     this.state = state;
   }
 

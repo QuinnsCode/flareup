@@ -7,12 +7,12 @@ export async function verifyTurnstileToken(token: string): Promise<boolean> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        secret: env.TURNSTILE_SECRET_KEY,
+        secret: (env as any).TURNSTILE_SECRET_KEY,
         response: token
       })
     });
     const result = await response.json();
-    return result.success;
+    return (result as any).success;
   } catch (error) {
     console.error('Turnstile verification failed:', error);
     return false;

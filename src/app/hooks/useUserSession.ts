@@ -58,8 +58,8 @@ export function useUserSession(options: UseUserSessionOptions): UseUserSessionRe
 
   const ws = useRef<WebSocket | null>(null);
   const reconnectAttempts = useRef(0);
-  const reconnectTimeout = useRef<NodeJS.Timeout>();
-  const pingInterval = useRef<NodeJS.Timeout>();
+  const reconnectTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
+  const pingInterval = useRef<NodeJS.Timeout | undefined>(undefined);
 
   const deviceId = useRef(
     typeof window !== 'undefined'

@@ -15,8 +15,8 @@ export async function handleAuthRequest(request: Request): Promise<Response> {
     console.error('[Auth Handler] Error:', error);
     return new Response(JSON.stringify({
       error: 'Auth failed',
-      message: error?.message || String(error),
-      stack: error?.stack
+      message: (error as any)?.message || String(error),
+      stack: (error as any)?.stack
     }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' }

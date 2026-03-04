@@ -1,10 +1,10 @@
 import { env } from "cloudflare:workers";
 
-const ENCRYPTION_KEY_HEX = env.API_ENCRYPTION_KEY! // 32 bytes hex
+const ENCRYPTION_KEY_HEX = (env as any).API_ENCRYPTION_KEY! // 32 bytes hex
 
 async function getEncryptionKey(): Promise<CryptoKey> {
   const keyBuffer = new Uint8Array(
-    ENCRYPTION_KEY_HEX.match(/.{1,2}/g)!.map(byte => parseInt(byte, 16))
+    ENCRYPTION_KEY_HEX.match(/.{1,2}/g)!.map((byte: string) => parseInt(byte, 16))
   )
   return await crypto.subtle.importKey(
     'raw',

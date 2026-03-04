@@ -173,7 +173,6 @@ async function handleSubscriptionCreated(event: LemonSqueezyWebhookEvent) {
       userId,
       tier,
       status: 'active',
-      source: 'lemonsqueezy',
       lemonSqueezySubscriptionId: event.data.id,
       lemonSqueezyCustomerId: event.data.attributes.customer_id.toString(),
       lemonSqueezyVariantId: variantId,
@@ -186,7 +185,6 @@ async function handleSubscriptionCreated(event: LemonSqueezyWebhookEvent) {
     update: {
       tier,
       status: 'active',
-      source: 'lemonsqueezy',
       lemonSqueezySubscriptionId: event.data.id,
       currentPeriodEnd: event.data.attributes.renews_at
         ? new Date(event.data.attributes.renews_at)

@@ -162,8 +162,8 @@ export async function setupSessionContext(ctx: AppContext, request: Request) {
       ctx.session = session;
       ctx.user = session?.user as any; // Cast to any to handle type differences
       console.log('✅ Session context set:', !!ctx.user ? `User: ${ctx.user?.email}` : 'No user');
-    } catch (authError) {
-      console.warn('⚠️ Auth session failed, continuing without session:', authError?.message);
+    } catch (authError: unknown) {
+      console.warn('⚠️ Auth session failed, continuing without session:', (authError as any)?.message);
       ctx.session = null;
       ctx.user = null;
     }
@@ -215,13 +215,6 @@ export async function setupOrganizationContext(ctx: AppContext, request: Request
       ctx.organization = null;
       ctx.userRole = null;
       ctx.orgError = null;
-      return;
-    }
-
-    // Skip if sandbox (already handled by sandboxMiddleware)
-    const { isSandboxEnvironment } = await import('@/lib/middleware/sandboxMiddleware');
-    if (isSandboxEnvironment(request)) {
-      console.log('🔍 Skipping org context - sandbox already handled');
       return;
     }
 

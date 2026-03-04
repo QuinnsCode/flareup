@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
 
@@ -21,57 +15,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ── Auth ─────────────────────────────────────────────────────────────────────
+
 model User {
-  id        String   @id @default(uuid()) // User ID (UUID-based)
-  username  String?  @unique // Make nullable since Better Auth doesn't require it
+  id        String   @id @default(uuid())
+  username  String?  @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Better Auth required fields - make them nullable
   name          String?
   email         String? @unique
   emailVerified Boolean @default(false)
   image         String?
 
-  // Relationships
-  credentials Credential[]
-  sessions    Session[]
-  accounts    Account[]
-
-  OrderNote  OrderNote[]
-  notes       Note[]
   role       String?
   banned     Boolean?
   banReason  String?
   banExpires DateTime?
 
+  // Relations
+  credentials Credential[]
+  sessions    Session[]
+  accounts    Account[]
   members     Member[]
   invitations Invitation[]
+  apikeys     Apikey[]
 
-  apikeys Apikey[]
-
+  stripeSubscription  StripeSubscription?
   squeezeSubscription SqueezeSubscription?
-  stripeSubscription StripeSubscription?
-
-  // Friend relations
-  friendships       Friendship[]    @relation("UserFriendships")
-  friendOf          Friendship[]    @relation("FriendOf")
-  sentRequests      FriendRequest[] @relation("SentRequests")
-  receivedRequests  FriendRequest[] @relation("ReceivedRequests")
-  
-  // Game invite relations
-  sentGameInvites     GameInvite[] @relation("SentGameInvites")
-  receivedGameInvites GameInvite[] @relation("ReceivedGameInvites")
 
   @@map("user")
 }
 
 model Credential {
-  id           String   @id @default(uuid()) // Internal DB ID
-  userId       String   @unique // Every credential is linked to a specific user
+  id           String   @id @default(uuid())
+  userId       String   @unique
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now())
-  credentialId String   @unique // WebAuthn credential identifier
+  credentialId String   @unique
   publicKey    Bytes
   counter      Int      @default(0)
 
@@ -90,8 +71,7 @@ model Session {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  impersonatedBy String?
-
+  impersonatedBy       String?
   activeOrganizationId String?
 
   @@index([userId])
@@ -131,72 +111,20 @@ model Verification {
   @@map("verification")
 }
 
-// Your existing models (add these back if you need them)
-
-model Order {
-  id            Int         @id @default(autoincrement())
-  orderNumber   String      @unique
-  shipstationId Int         @unique
-  orderData     String // JSON blob of full ShipStation order
-  status        String      @default("")
-  storeId       Int?        @default(0)
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  // For your internal notes/updates (for later)
-  notes         OrderNote[]
-
-  @@index([orderNumber])
-  @@index([shipstationId])
-  @@index([status])
-  @@index([createdAt])
-}
-
-model OrderNote {
-  id         Int      @id @default(autoincrement())
-  orderId    Int
-  userId     String? // Changed to String to match User.id
-  content    String
-  isInternal Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  order      Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  @@index([orderId])
-  @@index([userId])
-}
-
-model ShipstationWebhookResponse {
-  id           String   @id @default(uuid())
-  resourceUrl  String // URL to fetch the actual data
-  resourceType String // ORDER_NOTIFY, SHIP_NOTIFY, etc.
-  orderData    String? // JSON blob from fetching resource_url
-  processed    Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  @@index([resourceType])
-  @@index([processed])
-}
+// ── Orgs ─────────────────────────────────────────────────────────────────────
 
 model Organization {
-  id          String       @id
-  name        String
-  slug        String?      @unique
-  logo        String?
-  createdAt   DateTime
-  metadata    String?
-  
-  // Relations
+  id        String   @id
+  name      String
+  slug      String?  @unique
+  logo      String?
+  createdAt DateTime
+  metadata  String?
+
   members     Member[]
   invitations Invitation[]
   teams       Team[]
   apikeys     Apikey[]
-  thirdPartyApiKeys ThirdPartyApiKey[]
-  
-  // Org-scoped data relations
-  shipStationOrders   ShipStationOrder[]
-  shipStationWebhooks ShipStationWebhook[]
-  notes              Note[]
 
   @@map("organization")
 }
@@ -209,12 +137,11 @@ model Member {
   user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   role           String
   createdAt      DateTime
+  teamId         String?
 
-  teamId String?
-
+  @@unique([organizationId, userId])
   @@index([organizationId])
   @@index([userId])
-  @@unique([organizationId, userId])
   @@map("member")
 }
 
@@ -228,8 +155,7 @@ model Invitation {
   expiresAt      DateTime
   inviterId      String
   user           User         @relation(fields: [inviterId], references: [id], onDelete: Cascade)
-
-  teamId String?
+  teamId         String?
 
   @@index([organizationId])
   @@index([email])
@@ -249,24 +175,25 @@ model Team {
   @@map("team")
 }
 
-//these are for giving out access to shippycloud to other apps
+// ── API Keys ─────────────────────────────────────────────────────────────────
+
 model Apikey {
-  id                  String        @id
-  organizationId      String?       @map("organization_id") // 🔑 Add org scoping (nullable for now)
-  organization        Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name                String?       // "ShipStation API", "Amazon", etc.
-  service             String?       // "shipstation", "amazon", "shopify"
-  keyType             String?       // "api_key", "api_secret", "access_token"
-  start               String?
-  prefix              String?
-  key                 String
-  userId              String?       // Make nullable since org keys might not have a user
-  user                User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String        @id
+  organizationId String?       @map("organization_id")
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name           String?
+  service        String?
+  keyType        String?
+  start          String?
+  prefix         String?
+  key            String
+  userId         String?
+  user           User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   refillInterval      Int?
   refillAmount        Int?
   lastRefillAt        DateTime?
-  enabled             Boolean?      @default(true)
+  enabled             Boolean?  @default(true)
   rateLimitEnabled    Boolean?
   rateLimitTimeWindow Int?
   rateLimitMax        Int?
@@ -284,146 +211,29 @@ model Apikey {
   @@map("apikey")
 }
 
-model ThirdPartyApiKey {
-  id             String        @id @default(uuid())
-  organizationId String?       @map("organization_id")
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  name           String        // "ShipStation Production", "Amazon Seller Central"
-  service        String        // "shipstation", "amazon", "shopify"
-  authType       String        // "basic", "bearer", "api_key", "oauth"
-  encryptedAuth  String        @map("encrypted_auth") // Full auth string encrypted
-  enabled        Boolean       @default(true)
-  lastUsed       DateTime?     @map("last_used")
-  metadata       String?       // JSON for service-specific config
-  createdAt      DateTime      @default(now()) @map("created_at")
-  updatedAt      DateTime      @updatedAt @map("updated_at")
-
-  @@index([organizationId])
-  @@index([service])
-  @@map("third_party_api_keys")
-}
-
-model ShipStationOrder {
-  id             String        @id @default(uuid())
-  organizationId String?       @map("organization_id") // 🔑 Add org scoping (nullable for now)
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  orderId     Int      @map("order_id") // ShipStation's order ID
-  orderNumber String?  @map("order_number")
-  orderStatus String?  @map("order_status")
-  rawData     String   @map("raw_data") // Full JSON from ShipStation
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  notes       Note[] @relation("ShipStationOrderNotes")
-
-  @@index([organizationId])
-  @@index([orderId])
-  @@index([orderNumber])
-  @@index([orderStatus])
-  @@map("shipstation_orders")
-}
-
-model ShipStationWebhook {
-  id             String        @id @default(uuid())
-  organizationId String?       @map("organization_id") // 🔑 Add org scoping (nullable for now)
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  resourceUrl  String   @map("resource_url")
-  resourceType String   @map("resource_type")
-  rawData      String?  @map("raw_data") // Full webhook payload
-  processed    Boolean  @default(false)
-  createdAt    DateTime @default(now()) @map("created_at")
-
-  @@index([organizationId])
-  @@index([resourceType])
-  @@index([processed])
-  @@map("shipstation_webhooks")
-}
-
-model Note {
-  id             String        @id @default(uuid())
-  organizationId String?       @map("organization_id") // 🔑 Add org scoping (nullable for now)
-  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  
-  entityType String   @map("entity_type") // "shipstation_order", "amazon_order", "product", "customer", etc.
-  entityId   String   @map("entity_id")   // The ID of whatever entity this note is for
-  userId     String?  @map("user_id")
-  user       User?    @relation(fields: [userId], references: [id])
-  content    String
-  isInternal Boolean  @default(false) @map("is_internal")
-  metadata   String?  // JSON for extra data like tags, priority, etc.
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-
-  // Specific relations for type safety
-  shipstationOrder ShipStationOrder? @relation("ShipStationOrderNotes", fields: [entityId], references: [id])
-
-  @@index([organizationId])
-  @@index([entityType, entityId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("notes")
-}
-
-model SqueezeSubscription {
-  id     String @id @default(uuid())
-  userId String @unique @map("user_id")
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Tier & Status
-  tier   String @default("free") // 'free', 'starter', 'pro'
-  status String @default("active") // 'active', 'cancelled', 'expired', 'past_due'
-  
-  // Lemon Squeezy Integration
-  lemonSqueezySubscriptionId String? @unique @map("lemon_squeezy_subscription_id")
-  lemonSqueezyCustomerId     String? @map("lemon_squeezy_customer_id")
-  lemonSqueezyVariantId      String? @map("lemon_squeezy_variant_id")
-  
-  // Billing Dates
-  currentPeriodStart DateTime? @map("current_period_start")
-  currentPeriodEnd   DateTime? @map("current_period_end")
-  trialEndsAt        DateTime? @map("trial_ends_at")
-  endsAt             DateTime? @map("ends_at") // When cancelled sub ends
-  
-  // Metadata
-  metadata  String?   // JSON blob for raw webhook data
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  
-  @@index([tier])
-  @@index([status])
-  @@index([lemonSqueezySubscriptionId])
-  @@map("squeeze_subscriptions")
-}
+// ── Billing ──────────────────────────────────────────────────────────────────
 
 model StripeSubscription {
   id     String @id @default(uuid())
   userId String @unique @map("user_id")
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Tier & Status
-  tier   String @default("free") // 'free', 'starter', 'pro'
-  status String @default("active") // 'active', 'canceled', 'past_due', 'unpaid'
-  
-  // Stripe Integration
+
+  tier   String @default("free")
+  status String @default("active")
+
   stripeSubscriptionId String? @unique @map("stripe_subscription_id")
   stripeCustomerId     String? @map("stripe_customer_id")
   stripePriceId        String? @map("stripe_price_id")
-  
-  // Billing Dates
+
   currentPeriodStart DateTime? @map("current_period_start")
   currentPeriodEnd   DateTime? @map("current_period_end")
   cancelAtPeriodEnd  Boolean   @default(false) @map("cancel_at_period_end")
   canceledAt         DateTime? @map("canceled_at")
-  
-  // Metadata
-  metadata  String?   // JSON blob for Stripe data
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  
+
+  metadata  String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
   @@index([tier])
   @@index([status])
   @@index([stripeSubscriptionId])
@@ -431,52 +241,29 @@ model StripeSubscription {
   @@map("stripe_subscriptions")
 }
 
-model Friendship {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  user      User     @relation("UserFriendships", fields: [userId], references: [id], onDelete: Cascade)
-  friendId  String   @map("friend_id")
-  friend    User     @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
+model SqueezeSubscription {
+  id     String @id @default(uuid())
+  userId String @unique @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  tier   String @default("free")
+  status String @default("active")
+
+  lemonSqueezySubscriptionId String? @unique @map("lemon_squeezy_subscription_id")
+  lemonSqueezyCustomerId     String? @map("lemon_squeezy_customer_id")
+  lemonSqueezyVariantId      String? @map("lemon_squeezy_variant_id")
+
+  currentPeriodStart DateTime? @map("current_period_start")
+  currentPeriodEnd   DateTime? @map("current_period_end")
+  trialEndsAt        DateTime? @map("trial_ends_at")
+  endsAt             DateTime? @map("ends_at")
+
+  metadata  String?
   createdAt DateTime @default(now()) @map("created_at")
-  
-  @@unique([userId, friendId])
-  @@index([userId])
-  @@index([friendId])
-  @@map("friendships")
-}
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-model FriendRequest {
-  id         String   @id @default(uuid())
-  senderId   String   @map("sender_id")
-  sender     User     @relation("SentRequests", fields: [senderId], references: [id], onDelete: Cascade)
-  receiverId String   @map("receiver_id")
-  receiver   User     @relation("ReceivedRequests", fields: [receiverId], references: [id], onDelete: Cascade)
-  status     String   @default("pending") // pending, accepted, rejected
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  
-  @@unique([senderId, receiverId])
-  @@index([receiverId, status])
-  @@index([senderId, status])
-  @@map("friend_requests")
-}
-
-model GameInvite {
-  id           String   @id @default(uuid())
-  gameType     String   @map("game_type") // 'main' or 'card'
-  gameId       String   @map("game_id")
-  gameName     String   @map("game_name")
-  gameUrl      String   @map("game_url")
-  fromUserId   String   @map("from_user_id")
-  fromUser     User     @relation("SentGameInvites", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUserId     String   @map("to_user_id")
-  toUser       User     @relation("ReceivedGameInvites", fields: [toUserId], references: [id], onDelete: Cascade)
-  status       String   @default("pending") // pending, accepted, declined, expired
-  createdAt    DateTime @default(now()) @map("created_at")
-  expiresAt    DateTime @map("expires_at")
-  
-  @@index([toUserId, status])
-  @@index([fromUserId])
-  @@index([expiresAt])
-  @@map("game_invites")
+  @@index([tier])
+  @@index([status])
+  @@index([lemonSqueezySubscriptionId])
+  @@map("squeeze_subscriptions")
 }
