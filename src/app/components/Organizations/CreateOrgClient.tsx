@@ -168,7 +168,7 @@ export function CreateOrgClient({ initialUser }: CreateOrgClientProps) {
                     placeholder="golden-dragon"
                   />
                   <span className="inline-flex blur-xs items-center px-4 py-3 border-2 border-l-0 border-amber-700/50 bg-slate-800/70 text-amber-300/60 text-sm font-mono rounded-r-lg">
-                    .qntbr.com
+                    .qlave.com
                   </span>
                 </div>
                 <p className="mt-2 text-xs text-amber-300/70">

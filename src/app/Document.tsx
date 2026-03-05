@@ -6,7 +6,7 @@ function ErrorFallback({ error }: { error: Error }) {
   return (
     <html>
       <head>
-        <title>Error - QNTBR</title>
+        <title>Error - QLAVE</title>
       </head>
       <body style={{ margin: 0, padding: '2rem', fontFamily: 'system-ui' }}>
         <div style={{ maxWidth: '600px', margin: '0 auto' }}>

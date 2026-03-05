@@ -11,8 +11,8 @@
 		"directory": "public"
 	},
 	"routes": [
-		// "example.com/*",
-		// "*.example.com/*"
+		"qlave.dev/*",
+		"*.qlave.dev/*"
 	],
 	"observability": {
 		"enabled": true
@@ -30,7 +30,7 @@
 		]
 	},
 	"vars": {
-		"BETTER_AUTH_URL": "https://example.com"
+		"BETTER_AUTH_URL": "https://qlave.dev"
 	},
 	"migrations": [
 		{
@@ -50,17 +50,17 @@
 		{
 			"binding": "DB",
 			"database_name": "my-app-db",
-			"database_id": "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+			"database_id": "PUT_YOUR_ID_HERE"
 		}
 	],
 	"kv_namespaces": [
 		{
 			"binding": "RATELIMIT_KV",
-			"id": "REPLACE_WITH_YOUR_KV_ID"
+			"id": "PUT_YOUR_ID_HERE"
 		},
 		{
 			"binding": "AUTH_CACHE_KV",
-			"id": "REPLACE_WITH_YOUR_KV_ID"
+			"id": "PUT_YOUR_ID_HERE"
 		}
 	]
 }
