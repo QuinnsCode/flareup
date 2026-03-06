@@ -1,10 +1,6 @@
 "use client";
 /**
- * src/app/components/Dashboard/DashboardClient.tsx
- *
- * Owns token state only. Calls /api/cf/usage with token in header.
- * Passes data down as props to display components.
- * Token never stored — gone on tab close.
+ * src/app/pages/dashboard/DashboardClient.tsx
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
@@ -16,7 +12,6 @@ import { StatusBoard } from "@/app/components/Dashboard/StatusBoard";
 
 interface Session { token: string; accountId: string; }
 type LoadState = "idle" | "loading" | "loaded" | "error";
-
 
 async function fetchUsageFromServer(session: Session) {
   const res = await fetch("/api/cf/usage", {
@@ -36,10 +31,7 @@ async function fetchUsageFromServer(session: Session) {
 
 function ShimmerBlock({ w, h, delay = 0 }: { w?: number | string; h: number; delay?: number }) {
   return (
-    <div className="shimmer-block" style={{
-      width: w ?? "100%", height: h,
-      animationDelay: `${delay}s`,
-    }} />
+    <div className="shimmer-block" style={{ width: w ?? "100%", height: h, animationDelay: `${delay}s` }} />
   );
 }
 
@@ -48,15 +40,16 @@ function Shimmer() {
     <>
       <style dangerouslySetInnerHTML={{ __html: shimmerCSS }} />
       <div className="shimmer-page">
-        {/* Header */}
-        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 32px", borderBottom:"1px solid #1a1a1a", background:"#111" }}>
+        {/* Header — matches real header height/layout exactly to prevent shift */}
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"16px 32px", borderBottom:"1px solid #1a1a1a", background:"#111", height: 57 }}>
           <div style={{ display:"flex", gap:16, alignItems:"center" }}>
             <ShimmerBlock w={100} h={20} />
             <ShimmerBlock w={80} h={14} delay={0.05} />
           </div>
           <div style={{ display:"flex", gap:10 }}>
-            <ShimmerBlock w={70} h={30} delay={0.1} />
-            <ShimmerBlock w={90} h={30} delay={0.15} />
+            <ShimmerBlock w={60}  h={30} delay={0.05} />
+            <ShimmerBlock w={70}  h={30} delay={0.1} />
+            <ShimmerBlock w={90}  h={30} delay={0.15} />
             <ShimmerBlock w={120} h={30} delay={0.2} />
           </div>
         </div>
@@ -72,7 +65,7 @@ function Shimmer() {
           </div>
           <ShimmerBlock h={6} delay={0.2} />
         </div>
-        {/* Cost grid — 8 cards matching actual grid */}
+        {/* Cost grid */}
         <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:1, background:"#2a2a2a", margin:"24px 32px", border:"1px solid #2a2a2a", borderRadius:4, overflow:"hidden" }}>
           {Array.from({ length: 8 }).map((_, i) => (
             <div key={i} style={{ background:"#0a0a0a", padding:20, display:"flex", flexDirection:"column" as const, gap:8 }}>
@@ -93,54 +86,15 @@ function Shimmer() {
 }
 
 const shimmerCSS = `
-  .shimmer-page { min-height: 100vh; background: #0a0a0a; padding: 0; position: relative; overflow: hidden; font-family: system-ui; }
-  .shimmer-page {
-    min-height: 100vh;
-    background: #0a0a0a;
-    padding: 0;
-    position: relative;
-    overflow: hidden;
-  }
-  .shimmer-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 16px 32px;
-    border-bottom: 1px solid #1a1a1a;
-    background: #111;
-  }
+  .shimmer-page { min-height: 100vh; background: #0a0a0a; position: relative; overflow: hidden; font-family: system-ui; }
   .shimmer-block {
     border-radius: 3px;
     background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
     background-size: 200% 100%;
     animation: shimmer-sweep 1.4s ease-in-out infinite;
   }
-  .shimmer-bar {
-    margin: 24px 32px 0;
-    height: 48px; border-radius: 3px;
-    background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
-    background-size: 200% 100%;
-    animation: shimmer-sweep 1.4s ease-in-out infinite 0.1s;
-  }
-  .shimmer-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 12px;
-    padding: 24px 32px;
-  }
-  .shimmer-card {
-    height: 100px; border-radius: 3px;
-    background: linear-gradient(90deg, #1a1a1a 25%, #2a2a2a 50%, #1a1a1a 75%);
-    background-size: 200% 100%;
-    animation: shimmer-sweep 1.4s ease-in-out infinite;
-  }
-  .shimmer-card:nth-child(2) { animation-delay: 0.08s; }
-  .shimmer-card:nth-child(3) { animation-delay: 0.16s; }
-  .shimmer-card:nth-child(4) { animation-delay: 0.24s; }
-  .shimmer-card:nth-child(5) { animation-delay: 0.32s; }
-  .shimmer-card:nth-child(6) { animation-delay: 0.40s; }
-  .shimmer-card:nth-child(7) { animation-delay: 0.48s; }
   .shimmer-glow {
-    position: absolute;
-    bottom: -100px; left: 50%;
+    position: absolute; bottom: -100px; left: 50%;
     transform: translateX(-50%);
     width: 600px; height: 300px;
     background: radial-gradient(ellipse, rgba(232,93,4,0.08) 0%, transparent 70%);
@@ -189,12 +143,68 @@ function NotConnected({ onConnected }: { onConnected: (token: string, accountId:
   );
 }
 
+// ── Share popup ───────────────────────────────────────────────────────────────
+
+function SharePopup({ onClose }: { onClose: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const url = "https://flareup.dev";
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback
+      const el = document.createElement("textarea");
+      el.value = url;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand("copy");
+      document.body.removeChild(el);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".share-popup") && !target.closest(".share-trigger")) {
+        onClose();
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [onClose]);
+
+  return (
+    <div className="share-popup">
+      <div className="share-popup-label">Share FlareUp</div>
+      <div className="share-popup-row">
+        <input
+          className="share-popup-input"
+          readOnly
+          value={url}
+          onFocus={e => e.target.select()}
+        />
+        <button className="share-popup-copy" onClick={handleCopy}>
+          {copied ? "✓ Copied" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Header ────────────────────────────────────────────────────────────────────
 
 function Header({ session, fetchedAt, onRefresh, onDisconnect, loading }: {
   session: Session; fetchedAt: string;
   onRefresh: () => void; onDisconnect: () => void; loading: boolean;
 }) {
+  const [shareOpen, setShareOpen] = useState(false);
+
   return (
     <div className="dash-header">
       <div className="dash-header-left">
@@ -209,8 +219,21 @@ function Header({ session, fetchedAt, onRefresh, onDisconnect, loading }: {
         <button className="action-btn" onClick={onRefresh} disabled={loading}>
           {loading ? "Refreshing…" : "Refresh"}
         </button>
+        {/* Share button + popup */}
+        <div style={{ position: "relative" }}>
+          <button
+            className="action-btn share-trigger"
+            onClick={() => setShareOpen(o => !o)}
+          >
+            Share
+          </button>
+          {shareOpen && <SharePopup onClose={() => setShareOpen(false)} />}
+        </div>
+        <a href="/" className="action-btn">Home</a>
         <button className="action-btn action-btn--ghost" onClick={onDisconnect}>Disconnect</button>
-        <span className="action-btn action-btn--soon" title="Coming soon">Configure alerts <span className="soon-tag">soon</span></span>
+        <span className="action-btn action-btn--soon" title="Coming soon">
+          Configure alerts <span className="soon-tag">soon</span>
+        </span>
       </div>
     </div>
   );
@@ -260,6 +283,8 @@ export default function DashboardClient() {
   }, [session, load]);
 
   if (!session) return <NotConnected onConnected={handleConnected} />;
+
+  // Render shimmer immediately — no waiting, no layout shift
   if (loadState === "idle" || loadState === "loading") return <Shimmer />;
 
   if (loadState === "error") {
@@ -348,14 +373,63 @@ const pageCSS = `
   .dash-period { font-size: 13px; color: var(--text-muted); font-family: var(--font-mono); }
   .dash-meta   { font-size: 12px; color: var(--text-dim);   font-family: var(--font-mono); }
 
-  .action-btn { padding: 6px 14px; border-radius: 4px; font-size: 13px; font-family: var(--font-body); cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text); transition: all 0.15s; text-decoration: none; display: inline-block; }
-  .action-btn:hover    { border-color: var(--accent); color: var(--accent); }
+  .action-btn {
+    padding: 6px 14px; border-radius: 4px; font-size: 12px;
+    font-family: var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase;
+    cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text-muted);
+    transition: color 0.15s, border-color 0.15s;
+    text-decoration: none; display: inline-block;
+    position: relative; overflow: hidden;
+  }
+  .action-btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(105deg, transparent 40%, rgba(249,115,22,0.07) 50%, transparent 60%);
+    background-size: 200% 100%;
+    background-position: 200% 0;
+    transition: background-position 0.4s ease;
+  }
+  .action-btn:hover::after  { background-position: -200% 0; }
+  .action-btn:hover    { border-color: rgba(249,115,22,0.5); color: var(--accent); }
   .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .action-btn:disabled::after { display: none; }
   .action-btn--primary { border-color: var(--accent); color: var(--accent); }
-  .action-btn--ghost   { color: var(--text-muted); }
+  .action-btn--ghost   { color: var(--text-dim); }
   .action-btn--soon    { color: var(--text-dim); border-color: var(--border); cursor: not-allowed; opacity: 0.5; display: inline-flex; align-items: center; gap: 6px; }
   .action-btn--soon:hover { color: var(--text-dim); border-color: var(--border); }
+  .action-btn--soon::after { display: none; }
   .soon-tag { font-size: 9px; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 5px; border-radius: 2px; background: var(--surface2); border: 1px solid var(--border); }
+
+  /* Share popup */
+  .share-popup {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    min-width: 280px; z-index: 100;
+    animation: share-in 0.15s ease;
+  }
+  @keyframes share-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .share-popup-label { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px; }
+  .share-popup-row   { display: flex; gap: 6px; }
+  .share-popup-input {
+    flex: 1; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 4px; padding: 6px 10px;
+    font-size: 13px; font-family: var(--font-mono); color: var(--text);
+    outline: none;
+  }
+  .share-popup-input:focus { border-color: var(--accent); }
+  .share-popup-copy {
+    padding: 6px 14px; border-radius: 4px; font-size: 13px;
+    background: var(--accent); color: #fff; border: none;
+    cursor: pointer; font-family: var(--font-body);
+    transition: opacity 0.15s; white-space: nowrap;
+  }
+  .share-popup-copy:hover { opacity: 0.85; }
 
   .section-header { display: flex; align-items: baseline; gap: 12px; padding: 24px 32px 12px; }
   .section-title  { font-size: 13px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); }
