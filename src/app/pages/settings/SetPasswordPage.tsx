@@ -41,7 +41,7 @@ export default function SetPasswordPage() {
 
       // Redirect back to settings after 2 seconds
       setTimeout(() => {
-        window.location.href = '/sanctum?section=settings'
+        window.location.href = '/dashboard?section=settings'
       }, 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to set password')
@@ -68,7 +68,7 @@ export default function SetPasswordPage() {
       <div className="max-w-md w-full">
         {/* Back Button */}
         <a
-          href="/sanctum?section=settings"
+          href="/dashboard?section=settings"
           className="inline-flex items-center gap-2 text-slate-400 hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -79,7 +79,7 @@ export default function SetPasswordPage() {
         <div className="bg-slate-800 rounded-lg border-2 border-slate-600 p-6 md:p-8">
           {/* Header */}
           <div className="text-center mb-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-linear-to-br from-slate-600 to-slate-700 rounded-lg flex items-center justify-center mx-auto mb-4">
               <Key className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-white mb-2">Set Password</h1>

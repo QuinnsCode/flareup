@@ -498,7 +498,7 @@ export default function LandingPage() {
               </div>
               <div className="path-example red">
                 <span className="dim">$ </span>npx create-flareup<br />
-                <span className="dim">$ </span>wrangler secret put CF_API_TOKEN<br />
+                <span className="dim">$ </span>wrangler secret put CLOUDFLARE_API_TOKEN<br />
                 <span className="dim">$ </span>wrangler deploy<br />
                 <span className="dim"># your account, your infra, $0 cost</span>
               </div>

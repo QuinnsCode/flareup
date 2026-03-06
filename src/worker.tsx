@@ -19,6 +19,7 @@ import OrgNotFoundPage from "@/app/pages/errors/OrgNotFoundPage";
 import NoAccessPage from "@/app/pages/errors/NoAccessPage";
 import LandingPage from "@/app/pages/landing/LandingPage";
 import TestPage from "@/app/pages/test/TestPage";
+import AlertsPage from "@/app/pages/alerts/AlertsPage";
 
 // ── FlareUp imports ───────────────────────────────────────────────────────────
 import DashboardPage from "@/app/pages/dashboard/DashboardPage";
@@ -28,6 +29,7 @@ import {
   handleSaveConfig,
   handleTestWebhook,
 } from "@/app/api/alerts/index";
+import { sendWebhook, type WebhookPayload as AlertPayload } from "@/lib/webhook";
 import { getAlertConfig, evaluateAndAlert } from "@/lib/alerts/config";
 import { fetchAllUsage } from "@/lib/cf/client";
 import { estimateCosts, projectMonthEnd } from "@/lib/cf/pricing";
@@ -271,10 +273,7 @@ export default defineApp([
     layout(EveryonesLayout, [
       route("/dashboard", DashboardPage ),
 
-      route("/alerts",    async ({ request }) => {
-        // TODO: AlertsConfigPage — for now redirect to dashboard
-        return new Response(null, { status: 302, headers: { Location: "/dashboard" } });
-      }),
+      route("/alerts", AlertsPage),
 
       route("/", [
         ({ ctx, request }) => {
@@ -317,7 +316,7 @@ export default defineApp([
 // ── FlareUp cron handler ──────────────────────────────────────────────────────
 /**
  * Scheduled monitoring — runs on a cron trigger.
- * Reads CF_API_TOKEN + CF_ACCOUNT_ID from Worker secrets,
+ * Reads CLOUDFLARE_API_TOKEN + CF_ACCOUNT_ID from Worker secrets,
  * fetches usage, evaluates alert rules, fires webhooks.
  *
  * Add to wrangler.jsonc:
@@ -334,7 +333,7 @@ export const scheduled = async (
   env: any,
   _ctx: ExecutionContext
 ) => {
-  const token = env.CF_API_TOKEN;
+  const token = env.CLOUDFLARE_API_TOKEN;
   const accountId = env.CF_ACCOUNT_ID;
 
   // If no server-side token configured, skip silently
@@ -358,7 +357,8 @@ export const scheduled = async (
     const costs = estimateCosts({ workers: w, workersAI: ai, kv, d1, r2, durableObjects: doU, queues: q });
     const projected = projectMonthEnd(costs);
 
-    await evaluateAndAlert(alertConfig, projected.total, costs.total);
+    const appUrl = (env as any).APP_URL;
+    await evaluateAndAlert(alertConfig, projected.total, costs.total, appUrl);
   } catch (err) {
     console.error("FlareUp cron error:", err);
   }

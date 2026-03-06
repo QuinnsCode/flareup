@@ -74,7 +74,7 @@ export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
   // CLIENT-SIDE redirect if user is logged in
   useEffect(() => {
     if (ctx.user && isHydrated) {
-      window.location.href = "/sanctum";
+      window.location.href = "/dashboard";
     }
   }, [ctx.user, isHydrated]);
 

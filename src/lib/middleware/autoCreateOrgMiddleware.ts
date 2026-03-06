@@ -27,7 +27,7 @@ export async function autoCreateOrgMiddleware(
   if (!ctx.user ||
       url.pathname.startsWith('/api/') ||
       url.pathname.startsWith('/user/') ||
-      url.pathname.startsWith('/sanctum')) {
+      url.pathname.startsWith('/dashboard')) {
     return null;
   }
 

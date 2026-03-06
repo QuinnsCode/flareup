@@ -6,11 +6,12 @@
 
 import DashboardClient from "@/app/components/Dashboard/DashboardClient";
 import { getAppUrl } from "@/lib/constants";
+import { env } from "cloudflare:workers";
 
 export default async function DashboardPage() {
+  const isSelfHosted = !!(env as any).CLOUDFLARE_API_TOKEN;
+
   return (
-    <>
-      <DashboardClient appUrl={getAppUrl()} />
-    </>
+    <DashboardClient appUrl={getAppUrl()} isSelfHosted={isSelfHosted} />
   );
 }

@@ -1,41 +1,42 @@
 import styles from "./styles.css?url";
 import { Suspense } from 'react'
 
-function ErrorFallback({ error }: { error: Error }) {
-  return (
-    <html>
-      <head>
-        <title>Error - FlareUp</title>
-      </head>
-      <body style={{ margin: 0, padding: '2rem', fontFamily: 'system-ui' }}>
-        <div style={{ maxWidth: '600px', margin: '0 auto' }}>
-          <h1>⚠️ Something went wrong</h1>
-          <p>The page encountered an error. Try refreshing or clearing your browser cache.</p>
-          <button 
-            onClick={() => window.location.reload()}
-            style={{ 
-              padding: '12px 24px', 
-              fontSize: '16px', 
-              cursor: 'pointer',
-              background: '#e85d04',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px'
-            }}
-          >
-            Refresh Page
-          </button>
-          <details style={{ marginTop: '2rem' }}>
-            <summary>Technical Details</summary>
-            <pre style={{ background: '#f3f4f6', padding: '1rem', overflow: 'auto' }}>
-              {error?.stack}
-            </pre>
-          </details>
-        </div>
-      </body>
-    </html>
-  )
-}
+// function ErrorFallback({ error }: { error: Error }) {
+//   return (
+//     <html>
+//       <head>
+//         <title>Error - FlareUp</title>
+//       </head>
+//       <body style={{ margin: 0, padding: '2rem', fontFamily: 'system-ui' }}>
+//         <div style={{ maxWidth: '600px', margin: '0 auto' }}>
+//           <h1>⚠️ Something went wrong</h1>
+//           <p>The page encountered an error. Try refreshing or clearing your browser cache.</p>
+//           <button 
+//             onClick={() => window.location.reload()}
+//             style={{ 
+//               padding: '12px 24px', 
+//               fontSize: '16px', 
+//               cursor: 'pointer',
+//               background: '#e85d04',
+//               color: 'white',
+//               border: 'none',
+//               borderRadius: '4px'
+//             }}
+//           >
+//             Refresh Page
+//           </button>
+//           <details style={{ marginTop: '2rem' }}>
+//             <summary>Technical Details</summary>
+//             <pre style={{ background: '#f3f4f6', padding: '1rem', overflow: 'auto' }}>
+//               {error?.stack}
+//             </pre>
+//           </details>
+//         </div>
+//       </body>
+//     </html>
+//   )
+// }
+
 
 export function Document({ children }: { children: React.ReactNode }) {
   return (
@@ -44,7 +45,6 @@ export function Document({ children }: { children: React.ReactNode }) {
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>FlareUp</title>
-      <link rel="icon" type="image/png" href="/favicon.svg"/>
       <link rel="modulepreload" href="/src/client.tsx" />
       <link rel="stylesheet" href={styles} />
       <link rel="preconnect" href="https://fonts.googleapis.com" />

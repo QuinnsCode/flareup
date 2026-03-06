@@ -134,7 +134,7 @@ function NotConnected({ onConnected }: { onConnected: (token: string, accountId:
             <div className="connect-feature"><span>◆</span><span>Lives in your browser tab only — gone when you close it</span></div>
             <div className="connect-feature"><span>◆</span><span>Workers · KV · D1 · R2 · Workers AI · Durable Objects</span></div>
             <div className="connect-feature" style={{ color: "var(--text-dim)", fontStyle: "italic" }}>
-              <span>⬡</span><span>Self-hosted option coming soon — run entirely in your own CF account</span>
+              <span>⬡</span><span>Self-host and set <code style={{ fontFamily: "var(--font-mono)", fontSize: 11 }}>CLOUDFLARE_API_TOKEN</code> to unlock webhook alerts</span>
             </div>
           </div>
         </div>
@@ -199,10 +199,11 @@ function SharePopup({ onClose, appUrl }: { onClose: () => void; appUrl: string }
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-function Header({ session, fetchedAt, onRefresh, onDisconnect, loading, appUrl }: {
+function Header({ session, fetchedAt, onRefresh, onDisconnect, loading, appUrl, isSelfHosted }: {
   session: Session; fetchedAt: string;
   onRefresh: () => void; onDisconnect: () => void; loading: boolean;
   appUrl: string;
+  isSelfHosted: boolean,
 }) {
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -232,9 +233,7 @@ function Header({ session, fetchedAt, onRefresh, onDisconnect, loading, appUrl }
         </div>
         <a href="/" className="action-btn">Home</a>
         <button className="action-btn action-btn--ghost" onClick={onDisconnect}>Disconnect</button>
-        <span className="action-btn action-btn--soon" title="Coming soon">
-          Configure alerts <span className="soon-tag">soon</span>
-        </span>
+        {isSelfHosted && <a href="/alerts" className="action-btn">Alerts</a>}
       </div>
     </div>
   );
@@ -242,7 +241,7 @@ function Header({ session, fetchedAt, onRefresh, onDisconnect, loading, appUrl }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function DashboardClient({ appUrl }: { appUrl: string }) {
+export default function DashboardClient({ appUrl, isSelfHosted }: { appUrl: string; isSelfHosted: boolean }) {
   const [session,   setSession]   = useState<Session | null>(null);
   const [data,      setData]      = useState<any>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");
@@ -322,6 +321,8 @@ export default function DashboardClient({ appUrl }: { appUrl: string }) {
           onRefresh={() => load(session)}
           onDisconnect={handleDisconnect}
           loading={isLoadingRef.current}
+          appUrl={appUrl}
+          isSelfHosted={isSelfHosted}
         />
         <StatusBoard usage={usage} />
         <BurnBar
@@ -397,10 +398,6 @@ const pageCSS = `
   .action-btn:disabled::after { display: none; }
   .action-btn--primary { border-color: var(--accent); color: var(--accent); }
   .action-btn--ghost   { color: var(--text-dim); }
-  .action-btn--soon    { color: var(--text-dim); border-color: var(--border); cursor: not-allowed; opacity: 0.5; display: inline-flex; align-items: center; gap: 6px; }
-  .action-btn--soon:hover { color: var(--text-dim); border-color: var(--border); }
-  .action-btn--soon::after { display: none; }
-  .soon-tag { font-size: 9px; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 5px; border-radius: 2px; background: var(--surface2); border: 1px solid var(--border); }
 
   /* Share popup */
   .share-popup {

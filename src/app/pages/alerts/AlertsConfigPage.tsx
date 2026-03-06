@@ -140,12 +140,12 @@ export default async function AlertsConfigPage({ request }: { request: Request }
       <div className="docs-callout">
         <h3>How cron alerts work</h3>
         <p>
-          Deploy FlareUp as a Worker with the secrets <code>CF_API_TOKEN</code> and{" "}
+          Deploy FlareUp as a Worker with the secrets <code>CLOUDFLARE_API_TOKEN</code> and{" "}
           <code>CF_ACCOUNT_ID</code> set. The cron runs every 5 minutes for spike
           detection, hourly for burn rate, and daily for a full report.
         </p>
         <pre className="docs-code">
-{`wrangler secret put CF_API_TOKEN
+{`wrangler secret put CLOUDFLARE_API_TOKEN
 wrangler secret put CF_ACCOUNT_ID
 wrangler deploy`}
         </pre>

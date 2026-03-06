@@ -1,12 +1,13 @@
 /**
  * /api/alerts/* routes
  *
- * GET  /api/alerts/config  — get current alert config
- * POST /api/alerts/config  — save alert config
- * POST /api/alerts/test    — fire a test webhook
+ * GET  /api/alerts/config       — get current alert config
+ * POST /api/alerts/config       — save alert config
+ * POST /api/alerts/test-webhook — fire a test webhook
  */
 
-import { getAlertConfig, saveAlertConfig, sendWebhook, type AlertConfig } from "@/lib/alerts/config";
+import { getAlertConfig, saveAlertConfig, type AlertConfig } from "@/lib/alerts/config";
+import { sendWebhook } from "@/lib/webhook";
 import { env } from "cloudflare:workers";
 
 function json(data: unknown, status = 200): Response {
@@ -34,7 +35,6 @@ export async function handleSaveConfig(request: Request): Promise<Response> {
     return json({ error: "Invalid JSON" }, 400);
   }
 
-  // Basic validation
   if (typeof config.monthlyBudget !== "number" || config.monthlyBudget <= 0) {
     return json({ error: "monthlyBudget must be a positive number" }, 400);
   }
@@ -65,16 +65,19 @@ export async function handleTestWebhook(request: Request): Promise<Response> {
     return json({ error: "Missing webhookUrl" }, 400);
   }
 
-  const success = await sendWebhook(
-    { id: "test", name: body.webhookName ?? "Test", url: body.webhookUrl, enabled: true },
-    {
-      type: "tier",
+  const appUrl = (env as any).APP_URL as string | undefined;
+
+  const success = await sendWebhook({
+    url: body.webhookUrl,
+    payload: {
+      type: "test",
       severity: "info",
       title: "🔥 FlareUp test alert",
       message: "This is a test notification from FlareUp. Your webhook is configured correctly.",
       data: { test: true, timestamp: new Date().toISOString() },
-    }
-  );
+    },
+    appUrl,
+  });
 
   if (!success) {
     return json({ error: "Webhook delivery failed. Check the URL and try again." }, 502);
