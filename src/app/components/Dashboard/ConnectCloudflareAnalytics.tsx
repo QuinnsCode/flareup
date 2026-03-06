@@ -550,7 +550,7 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
                       Account ID
                       {accountId
                         ? <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>✓ auto-detected</span>
-                        : <a href="https://dash.cloudflare.com" target="_blank" rel="noopener noreferrer">Find it →</a>
+                        : <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener noreferrer">Find it →</a>
                       }
                     </label>
                     <input
@@ -563,7 +563,20 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
                       autoComplete="off"
                       spellCheck={false}
                     />
-                    <div className="cf-hint">// dash.cloudflare.com → right sidebar under account name</div>
+                    <div className="cf-hint" style={{ lineHeight: 1.9 }}>
+                      // three ways to find it. pick your poison.<br />
+                      //<br />
+                      // 1. <strong style={{color:"#8a9e8a"}}>Compute → Workers</strong> in the left nav.
+                      right sidebar. "Account Details". it's just sitting there.<br />
+                      //<br />
+                      // 2. already have a Worker open? look at your URL bar.
+                      dash.cloudflare.com/<strong style={{color:"#f48c06"}}>that-long-hex-slug</strong>/workers/...
+                      — that slug is your account ID. been there the whole time.<br />
+                      //<br />
+                      // 3. got a domain? click it. scroll down the right panel.
+                      it will reveal itself eventually. cloudflare hides it like
+                      it owes you money.
+                    </div>
                   </div>
 
                   {error && (

@@ -31,7 +31,6 @@ const PRODUCTS = [
 ];
 
 const CSS = `
-  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
 
   .sb-wrap {
     margin: 0 32px;

@@ -1,5 +1,5 @@
 import { defineApp } from "rwsdk/worker";
-import { route, render, prefix } from "rwsdk/router";
+import { route, render, prefix, layout } from "rwsdk/router";
 import { Document } from "@/app/Document";
 import { setCommonHeaders } from "@/app/headers";
 import { userRoutes } from "@/app/pages/user/routes";
@@ -21,12 +21,7 @@ import LandingPage from "@/app/pages/landing/LandingPage";
 
 // ── FlareUp imports ───────────────────────────────────────────────────────────
 import DashboardPage from "@/app/pages/dashboard/DashboardPage";
-import {
-  handleConnect,
-  handleDisconnect,
-  handleUsage,
-  handleStatus,
-} from "@/app/api/cf/index";
+import { handleValidate, handleAccounts, handleUsage, handleGraphQL, handleOptions } from "@/app/api/cf/index";
 import {
   handleGetConfig,
   handleSaveConfig,
@@ -35,6 +30,7 @@ import {
 import { getAlertConfig, evaluateAndAlert } from "@/lib/alerts/config";
 import { fetchAllUsage } from "@/lib/cf/client";
 import { estimateCosts, projectMonthEnd } from "@/lib/cf/pricing";
+import { EveryonesLayout } from "@/app/layouts/EveryonesLayout";
 
 // ── Durable Object exports ────────────────────────────────────────────────────
 export { SessionDurableObject } from "./session/durableObject";
@@ -164,12 +160,21 @@ export default defineApp([
 
   // ── FlareUp API routes ──────────────────────────────────────────────────────
   prefix("/api/cf", [
-    route("/connect", async ({ request }) => {
-      if (request.method === "DELETE") return handleDisconnect(request);
-      return handleConnect(request);
+    route("/validate", async ({ request }) => {
+      if (request.method === "OPTIONS") return handleOptions();
+      return handleValidate(request);
     }),
-    route("/status", async ({ request }) => handleStatus(request)),
-    route("/usage",  async ({ request }) => handleUsage(request)),
+    route("/accounts", async ({ request }) => {
+      if (request.method === "OPTIONS") return handleOptions();
+      return handleAccounts(request);
+    }),
+    route("/graphql", async ({ request }) => {
+      if (request.method === "OPTIONS") return handleOptions();
+      return handleGraphQL(request);
+    }),
+
+    route("/usage", async ({ request }) => handleUsage(request)),
+
   ]),
 
   prefix("/api/alerts", [
@@ -262,44 +267,47 @@ export default defineApp([
     termsRoute,
 
     // ── FlareUp pages ─────────────────────────────────────────────────────────
-    route("/dashboard", async ({ request }) => <DashboardPage request={request} />),
-    route("/alerts",    async ({ request }) => {
-      // TODO: AlertsConfigPage — for now redirect to dashboard
-      return new Response(null, { status: 302, headers: { Location: "/dashboard" } });
-    }),
+    layout(EveryonesLayout, [
+      route("/dashboard", DashboardPage ),
 
-    route("/", [
-      ({ ctx, request }) => {
+      route("/alerts",    async ({ request }) => {
+        // TODO: AlertsConfigPage — for now redirect to dashboard
+        return new Response(null, { status: 302, headers: { Location: "/dashboard" } });
+      }),
+
+      route("/", [
+        ({ ctx, request }) => {
+          const url = new URL(request.url);
+          if (url.pathname !== "/") return;
+
+          const orgSlug = extractOrgFromSubdomain(request);
+          if (!orgSlug) return;
+
+          if (ctx.orgError) return;
+
+          if (ctx.organization && (!ctx.user || !ctx.userRole)) {
+            return new Response(null, { status: 302, headers: { Location: "/user/login" } });
+          }
+
+          if (ctx.organization && ctx.user && ctx.userRole) {
+            return new Response(null, { status: 302, headers: { Location: "/dashboard" } });
+          }
+        },
+        LandingPage,
+      ]),
+
+      route("/*", ({ request }) => {
         const url = new URL(request.url);
-        if (url.pathname !== "/") return;
-
-        const orgSlug = extractOrgFromSubdomain(request);
-        if (!orgSlug) return;
-
-        if (ctx.orgError) return;
-
-        if (ctx.organization && (!ctx.user || !ctx.userRole)) {
-          return new Response(null, { status: 302, headers: { Location: "/user/login" } });
+        if (
+          url.pathname.startsWith("/api/") ||
+          url.pathname.startsWith("/__") ||
+          url.pathname.startsWith("/webhooks/")
+        ) {
+          return;
         }
-
-        if (ctx.organization && ctx.user && ctx.userRole) {
-          return new Response(null, { status: 302, headers: { Location: "/dashboard" } });
-        }
-      },
-      LandingPage,
-    ]),
-
-    route("/*", ({ request }) => {
-      const url = new URL(request.url);
-      if (
-        url.pathname.startsWith("/api/") ||
-        url.pathname.startsWith("/__") ||
-        url.pathname.startsWith("/webhooks/")
-      ) {
-        return;
-      }
-      return new Response(null, { status: 301, headers: { Location: "/" } });
-    }),
+        return new Response(null, { status: 301, headers: { Location: "/" } });
+      }),
+    ])
   ]),
 ]);
 
