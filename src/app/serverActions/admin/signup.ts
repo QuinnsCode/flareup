@@ -10,21 +10,18 @@ function getRedirectUrl(slug: string, request: Request): string {
   const url = new URL(request.url);
   const hostname = url.hostname;
   const protocol = url.protocol;
-  
-  // Local development (localhost)
+
   if (hostname.includes('localhost')) {
     const port = url.port || '5173';
-    return `${protocol}//${slug}.localhost:${port}/sanctum`;
+    return `${protocol}//${slug}.localhost:${port}/dashboard`;
   }
-  
-  // Wrangler dev (workers.dev)
+
   if (hostname.includes('workers.dev')) {
     const workerDomain = hostname.split('.').slice(-3).join('.');
-    return `${protocol}//${slug}.${workerDomain}/sanctum`;
+    return `${protocol}//${slug}.${workerDomain}/dashboard`;
   }
-  
-  // Production (flareup.dev)
-  return `${protocol}//${slug}.flareup.dev/dashboard`;
+
+  return `${protocol}//${slug}.${env.APP_URL}/dashboard`;
 }
 
 // Helper function to check availability (can be called before signup)

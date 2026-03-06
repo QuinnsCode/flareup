@@ -52,9 +52,9 @@ export const createAuth = () => {
   
         // Use void to prevent timing attacks (don't await)
         void resend!.emails.send({
-          from: "flareup.dev <no-reply@doubledragonsupply.com>",
+          from: `FlareUp <${env.RESEND_FROM_EMAIL}>`,
           to: [user.email],
-          subject: "Reset Your Password - flareup.dev",
+          subject: `Reset Your Password - ${env.APP_URL}`,
           html: getPasswordResetEmailHTML(url),
         }).then(() => {
           console.log('✅ Password reset email sent to:', user.email);
@@ -69,14 +69,14 @@ export const createAuth = () => {
         
         // Optional: Send confirmation email
         void resend!.emails.send({
-          from: "flareup.dev <no-reply@doubledragonsupply.com>",
+          from: `${env.APP_URL} <${env.RESEND_FROM_EMAIL}>`,
           to: [user.email],
-          subject: "Password Changed - flareup.dev",
+          subject: `Password Changed - ${env.APP_URL}`,
           html: `
             <h2>Password Changed</h2>
             <p>Your password has been successfully changed.</p>
             <p>If you did not make this change, please contact us immediately.</p>
-            <p>May your draws be legendary,<br>The flareup.dev team</p>
+            <p>We hope for small bills big thrills,<br>The ${env.APP_URL} team</p>
           `,
         }).catch((error) => {
           console.error('❌ Failed to send password changed confirmation:', error);
@@ -118,11 +118,11 @@ export const createAuth = () => {
     advanced: {
       crossSubDomainCookies: env.BETTER_AUTH_URL.includes('localhost')
       ? { enabled: false }
-      : { enabled: true, domain: ".flareup.dev" }
+      : { enabled: true, domain: `.${env.APP_URL}` }
     },
     trustedOrigins: [
-      "https://flareup.dev",
-      "https://*.flareup.dev",
+      `https://${env.APP_URL}`,
+      `https://*.${env.APP_URL}`,
       "http://localhost:5173",
       "http://*.localhost:5173",
       "http://localhost:8787",

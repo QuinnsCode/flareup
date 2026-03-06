@@ -3,6 +3,7 @@ import type { AppContext } from "@/worker";
 import { db } from "@/db";
 import { getCachedUserMemberships, invalidateMember } from '@/lib/cache/authCache';
 import { autoCreateOrgForOAuthUser } from '@/lib/auth/autoCreateOrgForOAuthUser';
+import { env } from "cloudflare:workers";
 
 /**
  * Middleware that:
@@ -113,7 +114,7 @@ function hasSubdomain(request: Request): boolean {
     return parts.length >= 2 && parts[1] === 'localhost';
   }
 
-  // Production: check for subdomain pattern (e.g., "myorg.flareup.dev")
+  // Production: check for subdomain pattern (e.g., "myorg.(env).APP_URL")
   const parts = hostname.split('.');
 
   // workers.dev: subdomain.worker.workers.dev (4 parts)
@@ -121,8 +122,8 @@ function hasSubdomain(request: Request): boolean {
     return parts.length >= 4;
   }
 
-  // flareup.dev: subdomain.flareup.dev (3 parts)
-  return parts.length >= 3 && hostname !== 'www.flareup.dev';
+  // APP_URL: subdomain.APP_URL(3 parts)
+  return parts.length >= 3 && hostname !== `${env.APP_URL}`;
 }
 
 /**
@@ -146,5 +147,5 @@ function buildOrgRedirectUrl(orgSlug: string, request: Request): string {
   }
 
   // Production
-  return `${protocol}//${orgSlug}.flareup.dev/dashboard`;
+  return `${protocol}//${orgSlug}.${env.APP_URL}/dashboard`;
 }

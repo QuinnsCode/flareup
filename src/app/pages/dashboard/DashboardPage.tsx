@@ -5,11 +5,12 @@
  */
 
 import DashboardClient from "@/app/components/Dashboard/DashboardClient";
+import { getAppUrl } from "@/lib/constants";
 
 export default async function DashboardPage() {
   return (
     <>
-      <DashboardClient />
+      <DashboardClient appUrl={getAppUrl()} />
     </>
   );
 }

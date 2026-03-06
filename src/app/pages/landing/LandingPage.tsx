@@ -1,6 +1,6 @@
-"use client";
 // src/app/pages/landing/LandingPage.tsx
 import { Flame, Zap, ShieldCheck, Terminal, Bell, Eye } from "lucide-react";
+import { env } from "cloudflare:workers";
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700&display=swap');
@@ -471,7 +471,7 @@ export default function LandingPage() {
                 Close the tab and it's gone.
               </div>
               <div className="path-example orange">
-                flareup.dev/dashboard<br />
+                {`${env.APP_URL}`}/dashboard<br />
                 <span className="dim">→ token verified read-only</span><br />
                 <span className="dim">→ lives in browser memory only</span><br />
                 <span className="dim">→ gone on tab close</span>
@@ -625,7 +625,7 @@ export default function LandingPage() {
       <footer>
         <span className="footer-brand">
           <span style={{ color: "var(--orange-l)" }}>▲</span> FLAREUP —{" "}
-          <a href="https://flareup.dev" style={{ color: "var(--text-2)", marginLeft: 4 }}>flareup.dev</a>
+          <a href={`https://${env.APP_URL}`} style={{ color: "var(--text-2)", marginLeft: 4 }}>{env.APP_URL}</a>
         </span>
         <div className="footer-links">
           <a href="https://github.com/QuinnsCode/flareup" target="_blank" rel="noopener">GitHub</a>

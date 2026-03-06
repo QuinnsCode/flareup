@@ -145,9 +145,9 @@ function NotConnected({ onConnected }: { onConnected: (token: string, accountId:
 
 // ── Share popup ───────────────────────────────────────────────────────────────
 
-function SharePopup({ onClose }: { onClose: () => void }) {
+function SharePopup({ onClose, appUrl }: { onClose: () => void; appUrl: string }) {
   const [copied, setCopied] = useState(false);
-  const url = "https://flareup.dev";
+  const url = `https://${appUrl}`;
 
   const handleCopy = async () => {
     try {
@@ -199,9 +199,10 @@ function SharePopup({ onClose }: { onClose: () => void }) {
 
 // ── Header ────────────────────────────────────────────────────────────────────
 
-function Header({ session, fetchedAt, onRefresh, onDisconnect, loading }: {
+function Header({ session, fetchedAt, onRefresh, onDisconnect, loading, appUrl }: {
   session: Session; fetchedAt: string;
   onRefresh: () => void; onDisconnect: () => void; loading: boolean;
+  appUrl: string;
 }) {
   const [shareOpen, setShareOpen] = useState(false);
 
@@ -227,7 +228,7 @@ function Header({ session, fetchedAt, onRefresh, onDisconnect, loading }: {
           >
             Share
           </button>
-          {shareOpen && <SharePopup onClose={() => setShareOpen(false)} />}
+          {shareOpen && <SharePopup onClose={() => setShareOpen(false)} appUrl={appUrl} />}
         </div>
         <a href="/" className="action-btn">Home</a>
         <button className="action-btn action-btn--ghost" onClick={onDisconnect}>Disconnect</button>
@@ -241,7 +242,7 @@ function Header({ session, fetchedAt, onRefresh, onDisconnect, loading }: {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function DashboardClient() {
+export default function DashboardClient({ appUrl }: { appUrl: string }) {
   const [session,   setSession]   = useState<Session | null>(null);
   const [data,      setData]      = useState<any>(null);
   const [loadState, setLoadState] = useState<LoadState>("idle");

@@ -22,8 +22,8 @@ function getRedirectUrl(slug: string, request: Request): string {
     return `${protocol}//${slug}.${workerDomain}/sanctum`;
   }
   
-  // Production (flareup.dev)
-  return `${protocol}//${slug}.flareup.dev/dashboard`;
+  // Production (APP_URL)
+  return `${protocol}//${slug}.${env.APP_URL}/dashboard`;
 }
 
 export async function createOrgForExistingUser({
