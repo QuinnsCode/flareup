@@ -18,6 +18,7 @@ import { verifyTurnstileToken } from "@/lib/turnstile";
 import OrgNotFoundPage from "@/app/pages/errors/OrgNotFoundPage";
 import NoAccessPage from "@/app/pages/errors/NoAccessPage";
 import LandingPage from "@/app/pages/landing/LandingPage";
+import TestPage from "@/app/pages/test/TestPage";
 
 // ── FlareUp imports ───────────────────────────────────────────────────────────
 import DashboardPage from "@/app/pages/dashboard/DashboardPage";
@@ -295,6 +296,8 @@ export default defineApp([
         },
         LandingPage,
       ]),
+
+      route("/test", TestPage),
 
       route("/*", ({ request }) => {
         const url = new URL(request.url);

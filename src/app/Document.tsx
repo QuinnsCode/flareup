@@ -44,7 +44,7 @@ export function Document({ children }: { children: React.ReactNode }) {
       <meta charSet="utf-8" />
       <meta name="viewport" content="width=device-width, initial-scale=1" />
       <title>FlareUp</title>
-      <link rel="icon" type="image/png" href="/favicon.png"/>
+      <link rel="icon" type="image/png" href="/favicon.svg"/>
       <link rel="modulepreload" href="/src/client.tsx" />
       <link rel="stylesheet" href={styles} />
       <link rel="preconnect" href="https://fonts.googleapis.com" />

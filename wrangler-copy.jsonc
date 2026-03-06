@@ -1,0 +1,79 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "CHANGE_THIS_VALUE",
+	"main": "src/worker.tsx",
+	"compatibility_date": "2025-08-21",
+	"compatibility_flags": [
+	  "nodejs_compat"
+	],
+	"assets": {
+	  "binding": "ASSETS",
+	  "directory": "public"
+	},
+	"routes": [
+	  "CHANGE_THIS_VALUE.dev/*",
+	  "*.CHANGE_THIS_VALUE.dev/*"
+	],
+	"observability": {
+	  "enabled": true
+	},
+	"triggers": {
+	  // Cron 1: every 5 min — spike detection
+	  // Cron 2: every hour  — burn rate + month projection
+	  // Cron 3: daily 00:00 — full report webhook
+	  "crons": ["*/5 * * * *", "0 * * * *", "0 0 * * *"]
+	},
+	"durable_objects": {
+	  "bindings": [
+		{
+		  "name": "SESSION_DURABLE_OBJECT",
+		  "class_name": "SessionDurableObject"
+		},
+		{
+		  "name": "USER_SESSION_DO",
+		  "class_name": "UserSessionDO"
+		}
+	  ]
+	},
+	"vars": {
+	  "BETTER_AUTH_URL": "https://CHANGE_THIS_VALUE.com",
+	  "PRIMARY_DOMAIN": "CHANGE_THIS_VALUE.com"
+	},
+	"migrations": [
+	  {
+		"tag": "v1",
+		"new_sqlite_classes": [
+		  "SessionDurableObject"
+		]
+	  },
+	  {
+		"tag": "v2",
+		"new_sqlite_classes": [
+		  "UserSessionDO"
+		]
+	  }
+	],
+	"d1_databases": [
+	  {
+		"binding": "DB",
+		"database_name": "CHANGE_THIS_VALUE",
+		"database_id": "CHANGE_THIS_VALUE"
+	  }
+	],
+	"kv_namespaces": [
+	  {
+		"binding": "RATELIMIT_KV",
+		"id": "CHANGE_THIS_VALUE"
+	  },
+	  {
+		"binding": "AUTH_CACHE_KV",
+		"id": "CHANGE_THIS_VALUE"
+	  },
+	  // ── FlareUp: alert config per-user (keyed by CF account ID)
+	  {
+		"binding": "ALERT_CONFIG_KV",
+		"id": "CHANGE_THIS_VALUE"
+	  }
+	]
+  }
+  

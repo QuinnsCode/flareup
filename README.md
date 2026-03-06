@@ -1,292 +1,267 @@
-# qstart-rwsdk
+# 🔥 FlareUp
 
-A production-ready starter for [RedwoodSDK](https://docs.rwsdk.com/) on Cloudflare Workers.
+**Cloudflare billing visibility. Before the $8,000 surprise.**
 
-Built by [qntbr](https://qntbr.com) after shipping a real app with this stack. The goal is to skip the painful setup and get straight to building.
+FlareUp monitors your Cloudflare spend in real time — Workers AI, KV, D1, R2, Durable Objects, Queues — and tells you when things are getting expensive before the invoice arrives.
 
----
-
-## What's included
-
-- **RedwoodSDK** — full-stack React framework on Cloudflare Workers
-- **Tailwind CSS** — utility-first styling, configured and ready
-- **BetterAuth** — email/password auth with org support, session management, password reset
-- **Prisma + D1** — type-safe SQLite on Cloudflare D1
-- **Organization scoping** — subdomain-based multi-tenancy (`org.yourdomain.com`)
-- **Durable Objects** — `UserSessionDO` as a working hibernation example with WebSocket
-- **Stripe** — real checkout session + webhook handler, wired end to end
-- **Rate limiting** — KV-backed rate limiter on sensitive routes
-- **Turnstile** — Cloudflare bot protection on signup
-- **Middleware chain** — session → org → autoCreateOrg, documented and battle-tested
-- **Server actions** — thin wrappers over services, usable from both RSC and API routes
+It was built after a $8,247 Workers AI bill showed up with zero warning. There was no monitoring tool. There is now.
 
 ---
 
-## Why this stack
+## What it does
 
-I wanted React Server Components without paying Next.js/Vercel prices, and without the GraphQL layer that always felt like overhead for solo and small-team projects.
+- **Live cost dashboard** — paste a read-only API token, see your burn rate instantly
+- **Month-end projection** — extrapolates today's usage across the full billing period
+- **Per-model AI tracking** — neurons billed per model, projected cost, share of total
+- **Spike detection** — compares current usage against 7-day rolling average (self-hosted)
+- **Webhook alerts** — Slack, Discord, PagerDuty, or any HTTP endpoint (self-hosted)
+- **Zero storage** — your token lives in your browser tab only. close it, it's gone.
 
-RedwoodSDK gives you RSC and SSR on Cloudflare Workers. That means your server components render at the edge, close to your users, and the cacheable parts stay cached. You get to decide what's server-rendered and what's client — no framework forcing your hand. And because it's just Cloudflare Workers, you can reuse the same service functions in server actions, API routes, and webhooks. No duplication, no special cases.
+---
 
-The Cloudflare infra piece is genuinely great:
-- **Workers** compute is cheap and distributed globally by default
-- **D1** is SQLite at the edge — easy to reason about, Prisma makes it portable to other DBs if needed
-- **Durable Objects** are the killer feature — persistent stateful compute with WebSocket hibernation. You pay for active processing time only (~10-50ms per message), not connection time. A WebSocket DO hibernates between messages and costs essentially nothing at rest
-- **KV** for fast reads on things like auth cache and rate limits
-- **R2** has no egress fees — store assets without the AWS S3 egress tax
+## Two ways to use it
 
-Prisma on top of all this means if you ever need to move off D1, it's a config change, not a rewrite.
+### Hosted dashboard — [flareup.dev](https://flareup.dev)
+
+Paste a read-only token. We verify it rejects write access, auto-detect your account ID, and show you a live dashboard. Token transits our Worker proxy (required — Cloudflare's API blocks browser CORS). We never store it anywhere.
+
+### Self-hosted — your own Cloudflare account
+
+Deploy FlareUp as a Worker in your own account. Your token never leaves your infra. Cron jobs run every 5 minutes for spike detection, hourly for burn rate, and daily for full reports.
+
+---
+
+## Self-hosting
+
+### 1. Prerequisites
+
+- [Cloudflare account](https://cloudflare.com) (free tier works)
+- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) installed
+- Node.js 18+
+
+```bash
+npm install -g wrangler
+wrangler login
+```
+
+---
+
+### 2. Clone the repo
+
+```bash
+git clone https://github.com/QuinnsCode/flareup.git
+cd flareup
+npm install
+```
+
+---
+
+### 3. Create your Cloudflare resources
+
+Create these in your Cloudflare dashboard or via Wrangler. We recommend the naming pattern `appname-purpose-type`.
+
+#### KV Namespaces (3)
+
+```bash
+wrangler kv namespace create flareup-ratelimit-kv
+wrangler kv namespace create flareup-auth-kv
+wrangler kv namespace create flareup-alerts-kv
+```
+
+Each command prints an `id` — save all three.
+
+#### D1 Database (1)
+
+```bash
+wrangler d1 create flareup-db
+```
+
+Prints a `database_id` — save it.
+
+---
+
+### 4. Configure wrangler.jsonc
+
+Copy the template and fill in your values:
+
+```bash
+cp wrangler-copy.jsonc wrangler.jsonc
+```
+
+Then edit `wrangler.jsonc`:
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "flareup",                          // your Worker name
+  "main": "src/worker.tsx",
+  "compatibility_date": "2025-08-21",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "binding": "ASSETS",
+    "directory": "public"
+  },
+  "routes": [
+    "yourdomain.com/*",                       // your domain
+    "*.yourdomain.com/*"                      // wildcard for subdomains
+  ],
+  "observability": { "enabled": true },
+  "triggers": {
+    // Cron 1: every 5 min  — spike detection
+    // Cron 2: every hour   — burn rate + month projection
+    // Cron 3: daily 00:00  — full report webhook
+    "crons": ["*/5 * * * *", "0 * * * *", "0 0 * * *"]
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "SESSION_DURABLE_OBJECT", "class_name": "SessionDurableObject" },
+      { "name": "USER_SESSION_DO",        "class_name": "UserSessionDO" }
+    ]
+  },
+  "vars": {
+    "BETTER_AUTH_URL": "https://yourdomain.com",
+    "PRIMARY_DOMAIN":  "yourdomain.com"
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["SessionDurableObject"] },
+    { "tag": "v2", "new_sqlite_classes": ["UserSessionDO"] }
+  ],
+  "d1_databases": [
+    {
+      "binding":       "DB",
+      "database_name": "flareup-db",          // name you used above
+      "database_id":   "paste-your-id-here"   // from wrangler d1 create output
+    }
+  ],
+  "kv_namespaces": [
+    { "binding": "RATELIMIT_KV",    "id": "paste-your-id-here" },  // flareup-ratelimit-kv
+    { "binding": "AUTH_CACHE_KV",   "id": "paste-your-id-here" },  // flareup-auth-kv
+    { "binding": "ALERT_CONFIG_KV", "id": "paste-your-id-here" }   // flareup-alerts-kv
+  ]
+}
+```
+
+`wrangler.jsonc` is gitignored — it never gets pushed.
+
+---
+
+### 5. Set secrets
+
+```bash
+wrangler secret put BETTER_AUTH_SECRET
+# paste a long random string — openssl rand -base64 32
+
+wrangler secret put CF_API_TOKEN
+# optional — only needed for cron-based background monitoring
+# paste a read-only token scoped to your own account
+
+wrangler secret put CF_ACCOUNT_ID
+# your Cloudflare account ID
+```
+
+---
+
+### 6. Run database migrations
+
+```bash
+wrangler d1 migrations apply flareup-db
+```
+
+---
+
+### 7. Deploy
+
+```bash
+wrangler deploy
+```
+
+---
+
+### 8. Wire up your domain
+
+In your Cloudflare dashboard under **DNS** for your domain, add:
+
+| Type  | Name | Target       |
+|-------|------|--------------|
+| CNAME | `*`  | yourdomain.com |
+| CNAME | `www`| yourdomain.com |
+
+The `*` wildcard CNAME is what makes subdomains work automatically — org slugs, user workspaces, etc. all route through the same Worker.
+
+Then under your Worker → **Settings → Domains & Routes**, add:
+
+| Type          | Value                  |
+|---------------|------------------------|
+| Route         | `yourdomain.com/*`     |
+| Route         | `*.yourdomain.com/*`   |
+| Custom domain | `yourdomain.com`       |
+
+This matches what you see in the Cloudflare dashboard — routes handle the traffic pattern, custom domain handles the TLS cert.
+
+---
+
+### 9. Local dev
+
+```bash
+npm run dev
+```
+
+Wrangler will use your `wrangler.jsonc` for local bindings. The app runs at `localhost:5173` by default.
 
 ---
 
 ## Architecture
 
-### Request flow
-
 ```
-Browser → Cloudflare Worker (src/worker.tsx)
-            │
-            ├── Middleware chain
-            │     1. URL normalization (www strip, HTTPS enforce)
-            │     2. initializeServices()       — DB singleton
-            │     3. setupSessionContext()      — BetterAuth cookie → ctx.user
-            │     4. setupOrganizationContext() — subdomain → ctx.organization
-            │     5. autoCreateOrgMiddleware()  — create org for new users
-            │
-            ├── Route matching
-            │     /__user-session   → UserSessionDO (WebSocket)
-            │     /api/auth/*       → BetterAuth handler
-            │     /api/stripe/*     → Stripe checkout
-            │     /api/webhooks/*   → Stripe / LemonSqueezy webhooks
-            │     /api/*            → catch-all dynamic loader
-            │     /*                → RSC render
+Browser
+  └── flareup.dev (Cloudflare Worker)
+        ├── /api/cf/*        — proxy to api.cloudflare.com (fixes CORS)
+        ├── /api/alerts/*    — alert config read/write (KV)
+        ├── /dashboard       — React dashboard (client)
+        ├── /                — landing page
+        └── Cron triggers
+              ├── */5 * * * *  — spike detection
+              ├── 0 * * * *    — burn rate projection
+              └── 0 0 * * *    — daily report webhook
 ```
 
-### Server actions
-
-Server actions live in `src/app/serverActions/` and are the standard way to run server-side logic from React components. They can also be called from API routes — same function, no duplication.
-
-```
-src/app/serverActions/
-├── admin/
-│   ├── signup.ts                  # Create user + org in one transaction
-│   ├── createOrgForExistingUser.ts
-│   └── getFirstOrgSlugOfUser.ts
-├── orgs/
-│   └── createOrg.ts               # Create organization, set membership
-├── stripe/
-│   ├── createCheckoutSession.ts   # Stripe checkout session
-│   └── createPortalSession.ts     # Stripe billing portal
-└── user/
-    └── setPassword.ts             # Password update
-```
-
-Server actions are thin — they validate inputs, call the DB or a service, and return a typed result. They don't own routing or response formatting. The same action works whether called from a server component, a client component via RSC, or directly from an API handler.
-
-### Durable Objects
-
-`UserSessionDO` is the working example in this starter. It demonstrates the **Hibernation API** pattern — the correct and cost-efficient way to run WebSocket DOs on Cloudflare.
-
-Key properties of the hibernation pattern:
-- The DO sleeps between messages — you only pay for active processing (~10-50ms per message)
-- `state.acceptWebSocket(server, [tag])` registers the socket with the CF runtime, not your code
-- `webSocketMessage` and `webSocketClose` are class methods, not event listeners
-- The DO can broadcast to all connected sockets with `state.getWebSockets()`
-- Storage (`state.storage`) persists across hibernations
-
-At 10,000 users each maintaining a persistent WebSocket, this pattern costs roughly $0.75/month.
-
-Connect from the client:
-```
-ws://yourdomain/__user-session?userId=xxx&deviceId=yyy
-```
-
-### API routes (catch-all loader)
-
-Drop a file in `src/app/api/` and it's live — no route registration needed:
-
-```ts
-// src/app/api/my-endpoint.ts
-export default async function({ request, ctx, params }: any) {
-  return Response.json({ hello: "world" });
-}
-// → available at /api/my-endpoint
-```
-
-### Organization scoping
-
-Every org gets a subdomain: `myorg.yourdomain.com`. The middleware reads the subdomain, looks up the org in D1 (with KV cache), and populates `ctx.organization`. Routes branch on `ctx.organization`, `ctx.user`, and `ctx.userRole`. New users are automatically redirected to create an org on first login.
+The Worker proxies all Cloudflare API calls because browsers can't hit `api.cloudflare.com` directly (CORS). Your token transits the Worker in request headers — it's never written to KV, D1, logs, or anywhere else.
 
 ---
 
-## Getting live fast
+## Token permissions
 
-### 1. Clone and install
+FlareUp needs **read-only** access. Write permissions are rejected on connect.
 
-```bash
-git clone https://github.com/QuinnsCode/qstart-rwsdk-26.git my-app
-cd my-app
-pnpm install
-```
+Minimum required: `Account Analytics: Read`
 
-### 2. Create Cloudflare resources
+Recommended full set (all read-only):
 
-```bash
-# D1 database
-npx wrangler d1 create my-app-db
-
-# KV namespaces
-npx wrangler kv namespace create RATELIMIT_KV
-npx wrangler kv namespace create AUTH_CACHE_KV
-```
-
-Paste the IDs into `wrangler.jsonc`.
-
-### 3. Update wrangler.jsonc
-
-```jsonc
-{
-  "name": "my-app",
-  "routes": ["yourdomain.com/*", "*.yourdomain.com/*"],
-  "vars": {
-    "BETTER_AUTH_URL": "https://yourdomain.com"
-  }
-}
-```
-
-### 4. Set secrets
-
-```bash
-npx wrangler secret put BETTER_AUTH_SECRET     # openssl rand -hex 32
-npx wrangler secret put RESEND_API_KEY         # resend.com
-npx wrangler secret put STRIPE_SECRET_KEY      # stripe.com dashboard
-npx wrangler secret put STRIPE_WEBHOOK_SECRET  # stripe dashboard → webhooks
-npx wrangler secret put TURNSTILE_SECRET_KEY   # cloudflare dashboard → turnstile
-```
-
-For local dev, copy `.dev.vars.example` to `.dev.vars` and fill in the same values.
-
-### 5. Run migrations
-
-```bash
-pnpm exec prisma generate
-npx wrangler d1 execute my-app-db --local --file=prisma/migrations/0001_init.sql
-```
-
-### 6. Dev
-
-```bash
-pnpm dev
-```
-
-### 7. Deploy
-
-```bash
-pnpm deploy
-```
-
----
-
-## Required env vars
-
-| Variable | Where to get it |
+| Permission | What we read |
 |---|---|
-| `BETTER_AUTH_SECRET` | `openssl rand -hex 32` |
-| `BETTER_AUTH_URL` | Your production URL |
-| `RESEND_API_KEY` | [resend.com](https://resend.com) |
-| `STRIPE_SECRET_KEY` | [stripe.com](https://stripe.com) |
-| `STRIPE_WEBHOOK_SECRET` | Stripe dashboard → Webhooks |
-| `TURNSTILE_SECRET_KEY` | Cloudflare dashboard → Turnstile |
+| Account Analytics | Workers, KV, D1, R2, DO, Queues via GraphQL |
+| Billing | Invoice totals |
+| Workers AI | Neuron counts per model |
+| Workers KV Storage | Read/write op counts |
+| Workers R2 Storage | Op counts + storage GB |
+| D1 | Row read/write counts |
+| Queues | Message operations |
+| Stream | Minutes stored/delivered |
+| Cloudflare Images | Images stored + transformations |
+| Workers Scripts | Script names |
+| Workers Observability | CPU time, error rates |
+| Vectorize | Query counts + dimensions |
 
-Optional:
-
-| Variable | Purpose |
-|---|---|
-| `PRIMARY_DOMAIN` | Used for www redirect (defaults to example.com) |
-| `API_ENCRYPTION_KEY` | 32-byte hex key for encrypted fields |
-
----
-
-## Project structure
-
-```
-src/
-├── worker.tsx                         # Entry point — routes, middleware, DO exports
-├── durableObjects/
-│   └── userSessionDO.ts               # Example DO with hibernation + WebSocket
-├── session/
-│   └── durableObject.ts               # BetterAuth session DO (don't modify)
-├── lib/
-│   ├── auth.ts                        # BetterAuth server config
-│   ├── auth-client.ts                 # BetterAuth client config
-│   ├── middlewareFunctions.ts         # Session + org context middleware
-│   ├── rateLimit.ts                   # KV-backed rate limiter
-│   ├── turnstile.ts                   # Cloudflare Turnstile verification
-│   ├── encrypt.ts                     # Field encryption utility
-│   └── middleware/
-│       └── autoCreateOrgMiddleware.ts
-├── app/
-│   ├── pages/
-│   │   ├── user/                      # Login, signup, password reset
-│   │   ├── landing/                   # Public landing page
-│   │   ├── sanctum/                   # Authenticated home (rename to /dashboard)
-│   │   ├── settings/                  # User settings
-│   │   └── errors/                    # OrgNotFound, NoAccess
-│   ├── api/
-│   │   ├── stripe/                    # create-checkout.ts
-│   │   └── webhooks/                  # stripe-wh.ts, lemonsqueezy-wh.ts
-│   ├── serverActions/
-│   │   ├── admin/                     # signup, createOrg, getOrgSlug
-│   │   ├── orgs/                      # createOrg
-│   │   ├── stripe/                    # checkout, portal
-│   │   └── user/                      # setPassword
-│   ├── hooks/
-│   │   └── useUserSession.ts          # WebSocket hook for UserSessionDO
-│   └── components/
-│       ├── theme/FantasyTheme.tsx     # UI component library (replace with your own)
-│       ├── Organizations/             # Org creation flow
-│       └── settings/                  # Account linking, settings UI
-└── db.ts                              # Prisma client singleton
-```
+None of these expose your actual data — DNS records, code, stored files, database rows. This is your accountant's view, not your admin's.
 
 ---
 
-## Extending the starter
+## Contributing
 
-### Adding a new Durable Object
-
-1. Create `src/durableObjects/myDO.ts` — model on `userSessionDO.ts`
-2. Export from `worker.tsx`: `export { MyDO } from './durableObjects/myDO'`
-3. Add binding in `wrangler.jsonc` under `durable_objects.bindings`
-4. Add migration in `wrangler.jsonc` under `migrations`
-5. Wire a route: `route("/__mydo", async ({ request }) => { ... })`
-
-### Adding a new API endpoint
-
-```ts
-// src/app/api/my-feature.ts
-export default async function({ request, ctx, params }: any) {
-  return Response.json({ ok: true });
-}
-```
-
-Live at `/api/my-feature` immediately.
-
-### Adding a new page
-
-Create a component in `src/app/pages/` and register it in `src/worker.tsx`:
-
-```ts
-import MyPage from "@/app/pages/MyPage";
-route("/my-page", MyPage),
-```
+PRs welcome. Open an issue first for anything major.
 
 ---
 
-## Further reading
+## License
 
-- [RedwoodSDK docs](https://docs.rwsdk.com/)
-- [BetterAuth docs](https://www.better-auth.com/)
-- [Cloudflare Durable Objects](https://developers.cloudflare.com/durable-objects/)
-- [Cloudflare D1](https://developers.cloudflare.com/d1/)
-- [Prisma D1 adapter](https://www.prisma.io/docs/orm/overview/databases/cloudflare-d1)
+MIT

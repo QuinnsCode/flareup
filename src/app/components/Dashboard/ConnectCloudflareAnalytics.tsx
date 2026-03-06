@@ -1,18 +1,5 @@
 "use client";
 
-/**
- * ConnectCloudflareAnalytics — CLIENT component
- *
- * Zero storage. Token lives in React state only.
- * Passed up to parent via onConnected() callback.
- *
- * Flow:
- *   Step 1 — do you have a read-only token?
- *   Step 1b — how to create one
- *   Step 2 — paste token → Worker auto-detects account ID (fixes CORS)
- *   Step 3 — connecting → verified → onConnected(token, accountId)
- */
-
 import { useState } from "react";
 
 const CSS = `
@@ -74,7 +61,6 @@ const CSS = `
     letter-spacing: 0.08em; margin-bottom: 24px;
   }
 
-  /* ── No-storage callout ── */
   .cf-zero-storage {
     background: rgba(220,38,38,0.04);
     border: 1px solid rgba(220,38,38,0.12);
@@ -95,7 +81,6 @@ const CSS = `
     font-style: italic;
   }
 
-  /* ── Self-hosted CTA ── */
   .cf-selfhost-pill {
     display: inline-flex; align-items: center; gap: 6px;
     padding: 5px 12px; border-radius: 2px;
@@ -200,6 +185,33 @@ const CSS = `
   .cf-input:disabled { opacity: 0.4; cursor: not-allowed; }
   .cf-hint { font-family: 'Share Tech Mono', monospace; font-size: 11px; color: #3a4e3a; letter-spacing: 0.04em; }
 
+  /* Account ID status row */
+  .cf-account-status {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: #060a06;
+    border: 1px solid rgba(232,93,4,0.15);
+    border-radius: 3px;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    transition: border-color 0.3s;
+  }
+  .cf-account-status.found {
+    border-color: rgba(34,197,94,0.3);
+    background: rgba(34,197,94,0.03);
+  }
+  .cf-account-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .cf-account-dot.searching { background: #f48c06; animation: cf-pulse-dot 1s ease-in-out infinite; }
+  .cf-account-dot.found     { background: #22c55e; }
+  .cf-account-dot.waiting   { background: #3a4e3a; }
+  @keyframes cf-pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .cf-account-text.searching { color: #f48c06; }
+  .cf-account-text.found     { color: #22c55e; }
+  .cf-account-text.waiting   { color: #3a4e3a; }
+
   .cf-error {
     display: flex; gap: 8px; align-items: flex-start;
     background: rgba(220,38,38,0.06);
@@ -277,45 +289,49 @@ const CSS = `
 
 type Step = "ask" | "howto" | "form" | "connecting";
 type LogLine = { text: string; status: "ok" | "active" | "pending" };
+type AccountStatus = "waiting" | "searching" | "found";
 
 interface Props {
-  /** Called when token is verified — parent holds it in state */
   onConnected: (token: string, accountId: string) => void;
 }
 
 export function ConnectCloudflareAnalytics({ onConnected }: Props) {
-  const [step, setStep]         = useState<Step>("ask");
-  const [accountId, setAccountId] = useState("");
-  const [token, setToken]       = useState("");
-  const [error, setError]       = useState("");
-  const [logLines, setLogLines] = useState<LogLine[]>([]);
+  const [step, setStep]               = useState<Step>("ask");
+  const [accountId, setAccountId]     = useState("");
+  const [accountStatus, setAccountStatus] = useState<AccountStatus>("waiting");
+  const [token, setToken]             = useState("");
+  const [error, setError]             = useState("");
+  const [logLines, setLogLines]       = useState<LogLine[]>([]);
 
-  /**
-   * Auto-detect account ID via our Worker proxy — fixes the CORS block
-   * that happens when fetching api.cloudflare.com directly from the browser.
-   */
   async function handleTokenChange(val: string) {
     setToken(val);
-    setAccountId(""); // reset while detecting
+    setAccountId("");
+    setAccountStatus("waiting");
     if (val.trim().length < 20) return;
 
+    setAccountStatus("searching");
     try {
       const res = await fetch("/api/cf/accounts", {
         method:  "POST",
         headers: { "X-CF-Token": val.trim() },
       });
-      if (!res.ok) return;
+      if (!res.ok) { setAccountStatus("waiting"); return; }
       const data = await res.json() as any;
       const first = data.accounts?.[0]?.id;
-      if (first) setAccountId(first);
+      if (first) {
+        setAccountId(first);
+        setAccountStatus("found");
+      } else {
+        setAccountStatus("waiting");
+      }
     } catch {
-      // silently fail — user can type it manually
+      setAccountStatus("waiting");
     }
   }
 
   async function handleConnect() {
     if (!token.trim() || !accountId.trim()) {
-      setError("Both fields are required.");
+      setError("Paste your token — we'll handle the rest.");
       return;
     }
 
@@ -337,9 +353,7 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
       )), doneIdx * 600 + 600
     );
 
-    tick(0, 1);
-    tick(1, 2);
-    tick(2, 3);
+    tick(0, 1); tick(1, 2); tick(2, 3);
 
     try {
       const res = await fetch("/api/cf/validate", {
@@ -356,13 +370,10 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
         return;
       }
 
-      // All good — mark everything done, clear token from local state,
-      // pass it up to parent (React state only, never stored)
       setLogLines(l => l.map(line => ({ ...line, status: "ok" })));
       const t  = token.trim();
       const id = accountId.trim();
-      setToken(""); // clear from this component's state
-
+      setToken("");
       setTimeout(() => onConnected(t, id), 400);
 
     } catch {
@@ -375,12 +386,17 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
                 : step === "form"                    ? 2
                 : 3;
 
+  const accountStatusLabel = {
+    waiting:   "// waiting for token...",
+    searching: "// fetching account id...",
+    found:     `// account id found — ${accountId.slice(0, 8)}…`,
+  }[accountStatus];
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <div className="cf-connect">
 
-        {/* Step indicator */}
         <div className="cf-steps">
           <div className={`cf-step ${stepNum > 1 ? "done" : "active"}`}>
             <span className="cf-step-num">{stepNum > 1 ? "✓" : "1"}</span>
@@ -523,7 +539,7 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
             {step === "form" && (
               <>
                 <div className="cf-card-title">Connect account</div>
-                <div className="cf-card-sub">// paste token — account ID auto-detected via proxy</div>
+                <div className="cf-card-sub">// paste token — account id detected automatically</div>
                 <div className="cf-fields">
 
                   <div className="cf-field">
@@ -545,38 +561,12 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
                     <div className="cf-hint">// write permissions are rejected on connect</div>
                   </div>
 
-                  <div className="cf-field">
-                    <label className="cf-label" htmlFor="accountId">
-                      Account ID
-                      {accountId
-                        ? <span style={{ color: "#22c55e", fontSize: 11, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>✓ auto-detected</span>
-                        : <a href="https://dash.cloudflare.com/?to=/:account/workers" target="_blank" rel="noopener noreferrer">Find it →</a>
-                      }
-                    </label>
-                    <input
-                      className="cf-input"
-                      id="accountId"
-                      type="text"
-                      placeholder="Auto-filled when token is pasted..."
-                      value={accountId}
-                      onChange={e => setAccountId(e.target.value)}
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <div className="cf-hint" style={{ lineHeight: 1.9 }}>
-                      // three ways to find it. pick your poison.<br />
-                      //<br />
-                      // 1. <strong style={{color:"#8a9e8a"}}>Compute → Workers</strong> in the left nav.
-                      right sidebar. "Account Details". it's just sitting there.<br />
-                      //<br />
-                      // 2. already have a Worker open? look at your URL bar.
-                      dash.cloudflare.com/<strong style={{color:"#f48c06"}}>that-long-hex-slug</strong>/workers/...
-                      — that slug is your account ID. been there the whole time.<br />
-                      //<br />
-                      // 3. got a domain? click it. scroll down the right panel.
-                      it will reveal itself eventually. cloudflare hides it like
-                      it owes you money.
-                    </div>
+                  {/* Account ID status — no input, just feedback */}
+                  <div className={`cf-account-status ${accountStatus}`}>
+                    <span className={`cf-account-dot ${accountStatus}`} />
+                    <span className={`cf-account-text ${accountStatus}`}>
+                      {accountStatusLabel}
+                    </span>
                   </div>
 
                   {error && (
@@ -586,7 +576,7 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
                   <button
                     className="cf-submit"
                     onClick={handleConnect}
-                    disabled={!token || !accountId}
+                    disabled={!token || accountStatus !== "found"}
                   >
                     Connect account
                   </button>

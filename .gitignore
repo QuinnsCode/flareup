@@ -73,3 +73,6 @@ generated/
 /blob-report/
 /playwright/.cache/
 /playwright/.auth/
+
+#keep local copy of our ids
+wrangler.json
