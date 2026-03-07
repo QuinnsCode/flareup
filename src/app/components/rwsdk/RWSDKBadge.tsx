@@ -87,7 +87,6 @@ export default function RWSDKBadge({ size = "md" }: RWSDKBadgeProps) {
   const [bouncing, setBouncing] = useState(false);
   const [popupVisible, setPopupVisible] = useState(false);
 
-  // Resolve size: named preset or raw number
   const s: SizeConfig = typeof size === "number"
     ? { logo: size, font: size * 0.4, subFont: size * 0.27, padding: `${size*0.22}px ${size*0.5}px ${size*0.22}px ${size*0.3}px`, gap: size * 0.28 }
     : (SIZES[size] ?? SIZES.md);
@@ -106,9 +105,28 @@ export default function RWSDKBadge({ size = "md" }: RWSDKBadgeProps) {
   };
 
   return (
-    <div style={{ position: "fixed", bottom: "24px", left: "24px", zIndex: 9999, display: "flex", alignItems: "flex-end", gap: "10px", fontFamily: "'DM Mono', 'Fira Code', monospace" }}>
+    // position/zIndex here, but bottom/left moved to CSS class so media query can override
+    <div className="rw-badge-fixed" style={{ position: "fixed", zIndex: 9999, display: "flex", alignItems: "flex-end", gap: "10px", fontFamily: "'DM Mono', 'Fira Code', monospace" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap');
+
+        /* Default position — in CSS so media query can override it */
+        .rw-badge-fixed {
+          bottom: 24px;
+          left: 24px;
+        }
+
+        /* Mobile — tuck it tighter into the corner */
+        @media (max-width: 640px) {
+          .rw-badge-fixed {
+            bottom: 12px;
+            left: 12px;
+          }
+          .rw-badge {
+            transform-origin: bottom left;
+          }
+        }
+
         @keyframes bubbly-hop {
           0%   { transform: scale(1) translateY(0); }
           15%  { transform: scale(1.15, 0.88) translateY(4px); }

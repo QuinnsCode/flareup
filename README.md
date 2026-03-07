@@ -132,6 +132,18 @@ wrangler secret put CF_ACCOUNT_ID
 
 > ⚠️ Do not set `CLOUDFLARE_API_TOKEN` as a shell environment variable — Wrangler uses that name internally for CLI auth. Set it via the CF dashboard UI instead.
 
+> ⚠️ **Deploying locally?** If you have `CLOUDFLARE_API_TOKEN` set in `.dev.vars` (for local cron testing), Wrangler will pick it up during `pnpm deploy` and use it as the CLI auth token — causing an authentication error if it's your read-only monitoring token.
+>
+> Before running `pnpm deploy` or `pnpm run release`, either comment it out:
+> ```bash
+> # CLOUDFLARE_API_TOKEN=your_readonly_token   ← comment out before deploying
+> ```
+> Or pass an empty override inline:
+> ```bash
+> CLOUDFLARE_API_TOKEN= pnpm run release
+> ```
+> Uncomment after deploy. The inline override is less error-prone since you can't forget to restore it.
+
 **Optional — password reset emails:**
 
 ```bash
@@ -169,6 +181,8 @@ Then under Workers → flareup → Settings → Domains & Routes:
 | Custom domain | `yourdomain.com`     |
 
 ### 9. Local dev
+
+> ⚠️ Values in `.dev.vars` are also loaded during deploy — see the token warning in Step 5.
 
 Copy `.dev.vars.example` to `.dev.vars` and fill in the same values as your secrets.
 

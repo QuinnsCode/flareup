@@ -4,7 +4,7 @@ import { Suspense } from 'react'
 const siteUrl = "https://flareup.dev";
 const title = "FlareUp — Cloudflare Burn Rate Monitor";
 const description = "Stop the meltdown before it starts. Real-time Cloudflare cost monitoring for Workers AI, KV, D1, R2 — tracked live, alerted fast, before the invoice arrives.";
-const ogImage = "https://flareup.dev/og-image.png";
+const ogImage = "https://flareup.dev/og-001.png";
 
 export function Document({ children }: { children: React.ReactNode }) {
   return (

@@ -383,14 +383,36 @@ const CSS = `
   .footer-links a:hover { color: var(--orange-l); }
 
   @media (max-width: 768px) {
-    nav { padding: 14px 20px; }
-    .hero { padding: 72px 20px 60px; min-height: auto; padding-top: 56px; }
-    .two-paths { padding: 56px 20px; }
+    nav {
+      padding: 12px 16px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    /* wordmark stays left, status pill goes to its own row */
+    nav > div:nth-child(2) {
+      order: 3;
+      width: 100%;
+    }
+    /* nav links stack below wordmark */
+    .nav-links {
+      order: 2;
+      margin-left: auto;
+    }
+    .hero { padding: 56px 20px 48px; min-height: auto; }
+    .two-paths { padding: 48px 16px; }
     .paths-grid { grid-template-columns: 1fr; }
     .what-we-see-grid { grid-template-columns: 1fr; }
+    .what-we-see { padding: 20px 16px; }
     .features { grid-template-columns: 1fr; }
-    .incident { padding: 48px 20px; }
-    footer { flex-direction: column; gap: 16px; text-align: center; padding: 24px 20px; }
+    .feature { padding: 32px 20px; }
+    .incident { padding: 48px 16px; }
+    footer {
+      flex-direction: column;
+      gap: 16px;
+      text-align: center;
+      padding: 24px 16px;
+    }
+    .footer-links { flex-wrap: wrap; justify-content: center; gap: 16px; }
   }
 `;
 
@@ -414,9 +436,7 @@ export default function LandingPage() {
           <a href="https://github.com/QuinnsCode/flareup" className="btn-ghost" target="_blank" rel="noopener">
             GitHub
           </a>
-          <a href="/dashboard">
-            <button className="btn-primary">Open Dashboard</button>
-          </a>
+          <a href="/dashboard" className="btn-primary">Open Dashboard</a>
         </div>
       </nav>
 
