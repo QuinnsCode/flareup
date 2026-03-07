@@ -399,18 +399,20 @@ export default function LandingPage() {
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      <nav>
+      <nav aria-label="Main navigation">
         <a href="/">
           <span className="wordmark">
             <span className="wordmark-flame">▲</span> FLAREUP
           </span>
         </a>
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span className="status-pill"><span className="status-dot" />Systems nominal</span>
+          <span className="status-pill" aria-label="System status: nominal">
+            <span className="status-dot" aria-hidden="true" />Systems nominal
+          </span>
         </div>
         <div className="nav-links">
-          <a href="https://github.com/QuinnsCode/flareup" target="_blank" rel="noopener">
-            <button className="btn-ghost">GitHub</button>
+          <a href="https://github.com/QuinnsCode/flareup" className="btn-ghost" target="_blank" rel="noopener">
+            GitHub
           </a>
           <a href="/dashboard">
             <button className="btn-primary">Open Dashboard</button>
@@ -420,12 +422,12 @@ export default function LandingPage() {
 
       <main>
         {/* Hero */}
-        <section className="hero">
+        <section className="hero" aria-labelledby="hero-heading">
           <div className="hero-alert">
-            <span className="alert-blink" />
+            <span className="alert-blink" aria-hidden="true" />
             ALERT — $8,000 Cloudflare bill detected — 03:47 UTC
           </div>
-          <h1 className="hero-title">
+          <h1 id="hero-heading" className="hero-title">
             Stop the<br /><em>meltdown</em><br /><span className="danger">before</span> it starts.
           </h1>
           <p className="hero-sub">
@@ -433,12 +435,12 @@ export default function LandingPage() {
           </p>
           <p className="hero-aside">// <span>$0.011 / 1k neurons</span> adds up faster than you think</p>
           <div className="hero-cta">
-            <a href="/dashboard"><button className="btn-cta">Connect your account</button></a>
-            <a href="https://github.com/QuinnsCode/flareup" target="_blank" rel="noopener">
-              <button className="btn-outline">Self-host free →</button>
+          <a href="/dashboard" className="btn-primary">Open Dashboard</a>
+            <a href="https://github.com/QuinnsCode/flareup" className="btn-outline" target="_blank" rel="noopener">
+              Self-host free →
             </a>
           </div>
-          <div className="terminal">
+          <div className="terminal" aria-hidden="true" role="presentation">
             <div className="terminal-header">
               <div className="terminal-header-dots"><span /><span /><span /></div>
               <span>FLAREUP — BURN RATE MONITOR</span>
@@ -456,9 +458,9 @@ export default function LandingPage() {
         </section>
 
         {/* Two paths */}
-        <section className="two-paths">
+        <section className="two-paths" aria-labelledby="paths-heading">
           <div className="section-eyebrow">Two ways to deploy</div>
-          <h2 className="section-title">Pick your setup</h2>
+          <h2 id="paths-heading" className="section-title">Pick your setup</h2>
 
           <div className="paths-grid">
             {/* Hosted */}
@@ -483,7 +485,7 @@ export default function LandingPage() {
                   "Transits our Worker proxy to reach CF GraphQL (CORS limitation)",
                   "Workers · KV · D1 · R2 · Workers AI · Durable Objects",
                 ].map(f => (
-                  <div className="path-feature" key={f}><span className="path-feature-dot" />{f}</div>
+                  <div className="path-feature" key={f}><span className="path-feature-dot" aria-hidden="true" />{f}</div>
                 ))}
               </div>
             </div>
@@ -509,7 +511,7 @@ export default function LandingPage() {
                   "Webhook to Slack, Discord, PagerDuty, or any HTTP endpoint",
                   "Runs on CF free tier — costs you nothing",
                 ].map(f => (
-                  <div className="path-feature" key={f}><span className="path-feature-dot" />{f}</div>
+                  <div className="path-feature" key={f}><span className="path-feature-dot" aria-hidden="true" />{f}</div>
                 ))}
               </div>
             </div>
@@ -549,7 +551,7 @@ export default function LandingPage() {
         </section>
 
         {/* Features */}
-        <div className="features">
+        <section className="features" aria-label="Features">
           {[
             {
               icon: <Flame size={24} strokeWidth={1.6} />,
@@ -588,14 +590,14 @@ export default function LandingPage() {
               <div className="feature-desc">{f.desc}</div>
             </div>
           ))}
-        </div>
+        </section>
 
         {/* The incident */}
-        <section className="incident">
-          <div className="section-eyebrow" style={{ marginBottom: 32 }}>The incident that built this</div>
+        <section className="incident" aria-labelledby="incident-heading">
+          <div className="section-eyebrow" id="incident-heading" style={{ marginBottom: 32 }}>The incident that built this</div>
           <div className="incident-card">
             <div className="incident-header">
-              <span className="alert-blink" />
+              <span className="alert-blink" aria-hidden="true" />
               <span className="incident-level">SEV-1 BILLING INCIDENT</span>
               <span className="incident-time">detected 03:47 UTC</span>
             </div>
@@ -622,7 +624,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer>
+      <footer aria-label="Site footer">
         <span className="footer-brand">
           <span style={{ color: "var(--orange-l)" }}>▲</span> FLAREUP —{" "}
           <a href={`https://${env.APP_URL}`} style={{ color: "var(--text-2)", marginLeft: 4 }}>{env.APP_URL}</a>
