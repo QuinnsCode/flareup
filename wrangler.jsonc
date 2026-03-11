@@ -32,12 +32,16 @@
 		{
 		  "name": "USER_SESSION_DO",
 		  "class_name": "UserSessionDO"
+		},
+		{
+			"name": "ORG_SCAN_DO",
+			"class_name": "OrgScanDO"
 		}
 	  ]
 	},
 	"vars": {
 	  "BETTER_AUTH_URL": "https://flareup.dev",
-	  "PRIMARY_DOMAIN": "flareup.dev"
+	  "APP_URL": "flareup.dev"
 	},
 	"migrations": [
 	  {
@@ -51,6 +55,9 @@
 		"new_sqlite_classes": [
 		  "UserSessionDO"
 		]
+	  },
+	  { "tag": "v3",
+	   "new_sqlite_classes": ["OrgScanDO"]
 	  }
 	],
 	"d1_databases": [
@@ -74,6 +81,19 @@
 		"binding": "ALERT_CONFIG_KV",
 		"id": "ab0a50867a4c4ea6b13642d5e98d4bbc"
 	  }
-	]
-  }
+	],
+	"queues": {
+		"producers": [
+			{ "queue": "flareup-alerts-queue", "binding": "ALERT_QUEUE" }
+		],
+		"consumers": [
+			{
+				"queue": "flareup-alerts-queue",
+				"max_batch_size": 10,
+				"max_batch_timeout": 5,
+				"max_retries": 3
+			}
+		]
+	}
+}
   

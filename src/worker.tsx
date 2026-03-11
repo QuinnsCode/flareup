@@ -21,6 +21,7 @@ import LandingPage from "@/app/pages/landing/LandingPage";
 import TestPage from "@/app/pages/test/TestPage";
 import AlertsPage from "@/app/pages/alerts/AlertsPage";
 
+
 // ── FlareUp imports ───────────────────────────────────────────────────────────
 import DashboardPage from "@/app/pages/dashboard/DashboardPage";
 import { handleValidate, handleAccounts, handleUsage, handleGraphQL, handleOptions } from "@/app/api/cf/index";
@@ -29,15 +30,21 @@ import {
   handleSaveConfig,
   handleTestWebhook,
 } from "@/app/api/alerts/index";
-import { sendWebhook, type WebhookPayload as AlertPayload } from "@/lib/webhook";
+import { handleGetTokens, handleSaveToken, handleDeleteToken } from "@/app/api/alerts/token";
+
 import { getAlertConfig, evaluateAndAlert } from "@/lib/alerts/config";
 import { fetchAllUsage } from "@/lib/cf/client";
 import { estimateCosts, projectMonthEnd } from "@/lib/cf/pricing";
 import { EveryonesLayout } from "@/app/layouts/EveryonesLayout";
+import { buildScanPayloads } from "@/app/services/scan/fanOut";
+
+
+import { OrgScanDO, type ScanPayload, type ScanTier } from "@/durableObjects/OrgScanDO";
 
 // ── Durable Object exports ────────────────────────────────────────────────────
 export { SessionDurableObject } from "./session/durableObject";
 export { UserSessionDO } from "./durableObjects/userSessionDO";
+export { OrgScanDO } from "@/durableObjects/OrgScanDO";
 
 // ── App context type ──────────────────────────────────────────────────────────
 export type AppContext = {
@@ -51,7 +58,7 @@ export type AppContext = {
 // ── URL normalization ─────────────────────────────────────────────────────────
 function normalizeUrl(request: Request): Response | null {
   const url = new URL(request.url);
-  const PRIMARY_DOMAIN = (env as any).PRIMARY_DOMAIN || "example.com";
+  const APP_URL = (env as any).APP_URL || "example.com";
   const isLocalhost = url.hostname.includes("localhost");
 
   if (isLocalhost) return null;
@@ -65,8 +72,8 @@ function normalizeUrl(request: Request): Response | null {
     shouldRedirect = true;
   }
 
-  if (url.hostname === `www.${PRIMARY_DOMAIN}`) {
-    newHostname = PRIMARY_DOMAIN;
+  if (url.hostname === `www.${APP_URL}`) {
+    newHostname = APP_URL;
     shouldRedirect = true;
   }
 
@@ -83,7 +90,7 @@ function normalizeUrl(request: Request): Response | null {
 }
 
 // ── App ───────────────────────────────────────────────────────────────────────
-export default defineApp([
+const app = defineApp([
   setCommonHeaders(),
 
   // 1. URL normalization — always first
@@ -122,7 +129,7 @@ export default defineApp([
         const url = new URL(request.url);
         const mainDomain = url.hostname.includes("localhost")
           ? "localhost:5173"
-          : (env as any).PRIMARY_DOMAIN || "example.com";
+          : (env as any).APP_URL || "example.com";
 
         if (ctx.orgError === "ORG_NOT_FOUND") {
           const orgSlug = extractOrgFromSubdomain(request);
@@ -186,6 +193,12 @@ export default defineApp([
       return handleSaveConfig(request);
     }),
     route("/test-webhook", async ({ request }) => handleTestWebhook(request)),
+    route("/token", async ({ request }) => {
+      if (request.method === "GET")    return handleGetTokens(request);
+      if (request.method === "POST")   return handleSaveToken(request);
+      if (request.method === "DELETE") return handleDeleteToken(request);
+      return Response.json({ error: "Method not allowed" }, { status: 405 });
+    }),
   ]),
 
   // ── Existing API routes ─────────────────────────────────────────────────────
@@ -328,38 +341,92 @@ export default defineApp([
  * Cron 2 (every hour):   burn rate + month projection
  * Cron 3 (daily 00:00):  full report webhook
  */
-export const scheduled = async (
-  event: ScheduledEvent,
-  env: any,
-  _ctx: ExecutionContext
-) => {
-  const token = env.CLOUDFLARE_API_TOKEN;
-  const accountId = env.CF_ACCOUNT_ID;
 
-  // If no server-side token configured, skip silently
-  // (user is relying on browser session only)
-  if (!token || !accountId) return;
 
-  try {
-    const [usage, alertConfig] = await Promise.all([
-      fetchAllUsage({ token, accountId }),
-      getAlertConfig(env.ALERT_CONFIG_KV),
-    ]);
+export default {
+  fetch: app.fetch,
 
-    const w   = usage.workers.status        === "ok" ? usage.workers.data        : { requests: 0, cpuTimeMs: 0 };
-    const ai  = usage.workersAI.status      === "ok" ? usage.workersAI.data      : { neurons: 0, requests: 0, byModel: [] };
-    const kv  = usage.kv.status             === "ok" ? usage.kv.data             : { reads: 0, writes: 0, deletes: 0, lists: 0 };
-    const d1  = usage.d1.status             === "ok" ? usage.d1.data             : { rowsRead: 0, rowsWritten: 0 };
-    const r2  = usage.r2.status             === "ok" ? usage.r2.data             : { classAOps: 0, classBOps: 0, storageGB: 0 };
-    const doU = usage.durableObjects.status === "ok" ? usage.durableObjects.data : { requests: 0, durationMs: 0 };
-    const q   = usage.queues.status         === "ok" ? usage.queues.data         : { operations: 0 };
+  // ── Queue consumer ──────────────────────────────────────────────────────────
+  // Each message is a ScanPayload — routes to the org's OrgScanDO
+  async queue(batch: MessageBatch<ScanPayload>, env: any) {
+    for (const msg of batch.messages) {
+      try {
+        const payload = msg.body;
+        const id      = env.ORG_SCAN_DO.idFromName(payload.orgId);
+        const stub    = env.ORG_SCAN_DO.get(id);
 
-    const costs = estimateCosts({ workers: w, workersAI: ai, kv, d1, r2, durableObjects: doU, queues: q });
-    const projected = projectMonthEnd(costs);
+        const res = await stub.fetch("https://internal/scan", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify(payload),
+        });
 
-    const appUrl = (env as any).APP_URL;
-    await evaluateAndAlert(alertConfig, projected.total, costs.total, appUrl);
-  } catch (err) {
-    console.error("FlareUp cron error:", err);
-  }
-};
+        if (res.ok) {
+          msg.ack();
+        } else {
+          const err = await res.json() as any;
+          console.error(`[queue] scan failed for org ${payload.orgId}:`, err);
+          // retry_all handles retry — just ack to avoid infinite loop on bad tokens
+          if (err.reason === "token_decrypt_failed") {
+            msg.ack();
+          } else {
+            msg.retry();
+          }
+        }
+      } catch (err) {
+        console.error("[queue] unexpected error:", err);
+        msg.retry();
+      }
+    }
+  },
+
+  // ── Scheduled handler ───────────────────────────────────────────────────────
+  // Fans out one queue message per CloudflareToken — returns in <100ms
+  async scheduled(controller: ScheduledController, env: any, ctx: ExecutionContext) {
+    await initializeServices();
+
+    // ── Self-hosted (token from Worker secrets) ─────────────────────────────
+    const selfToken     = env.CLOUDFLARE_API_TOKEN;
+    const selfAccountId = env.CF_ACCOUNT_ID;
+
+    if (selfToken && selfAccountId) {
+      try {
+        const [usage, alertConfig] = await Promise.all([
+          fetchAllUsage({ token: selfToken, accountId: selfAccountId }),
+          getAlertConfig(env.ALERT_CONFIG_KV),
+        ]);
+
+        const w   = usage.workers.status        === "ok" ? usage.workers.data        : { requests: 0, cpuTimeMs: 0 };
+        const ai  = usage.workersAI.status      === "ok" ? usage.workersAI.data      : { neurons: 0, requests: 0, byModel: [] };
+        const kv  = usage.kv.status             === "ok" ? usage.kv.data             : { reads: 0, writes: 0, deletes: 0, lists: 0 };
+        const d1  = usage.d1.status             === "ok" ? usage.d1.data             : { rowsRead: 0, rowsWritten: 0 };
+        const r2  = usage.r2.status             === "ok" ? usage.r2.data             : { classAOps: 0, classBOps: 0, storageGB: 0 };
+        const doU = usage.durableObjects.status === "ok" ? usage.durableObjects.data : { requests: 0, durationMs: 0 };
+        const q   = usage.queues.status         === "ok" ? usage.queues.data         : { operations: 0 };
+
+        const costs     = estimateCosts({ workers: w, workersAI: ai, kv, d1, r2, durableObjects: doU, queues: q });
+        const projected = projectMonthEnd(costs);
+
+        await evaluateAndAlert(alertConfig, projected.total, costs.total, env.APP_URL);
+      } catch (err) {
+        console.error("FlareUp self-hosted cron error:", err);
+      }
+    }
+
+    // ── Hosted alerts — fan out to queue ───────────────────────────────────
+    ctx.waitUntil((async () => {
+      try {
+        const messages = await buildScanPayloads(env);
+        const BATCH = 100;
+        for (let i = 0; i < messages.length; i += BATCH) {
+          await env.ALERT_QUEUE.sendBatch(
+            messages.slice(i, i + BATCH).map((body: any) => ({ body }))
+          );
+        }
+        console.log(`[scheduled] queued ${messages.length} scans`);
+      } catch (err) {
+        console.error("[scheduled] fan-out error:", err);
+      }
+    })());
+  },
+} satisfies ExportedHandler<Env>;

@@ -1,6 +1,8 @@
 // src/app/pages/landing/LandingPage.tsx
 import { Flame, Zap, ShieldCheck, Terminal, Bell, Eye } from "lucide-react";
 import { env } from "cloudflare:workers";
+import { ModalTrigger } from "@/app/components/LandingPageClient/LandingPageClient";
+import { FireLayout } from "@/app/layouts/FireLayout"
 
 const CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&family=Barlow:wght@300;400;500;600&family=Barlow+Condensed:wght@400;600;700&display=swap');
@@ -103,6 +105,15 @@ const CSS = `
   }
   .btn-primary:hover { background: var(--orange-l); transform: translateY(-1px); box-shadow: 0 4px 24px var(--orange-g); }
 
+  .hero-cta {
+    display: flex; gap: 12px; flex-wrap: wrap;
+    justify-content: center; align-items: stretch;
+    margin-bottom: 56px; position: relative; z-index: 1;
+  }
+  .hero-cta .btn-primary {
+    padding: 16px 40px;
+  }
+
   .btn-cta {
     padding: 16px 44px; border-radius: 3px;
     font-family: var(--display); font-size: 14px; letter-spacing: 0.16em; text-transform: uppercase;
@@ -180,10 +191,7 @@ const CSS = `
   }
   .hero-aside span { color: var(--orange); }
 
-  .hero-cta {
-    display: flex; gap: 12px; flex-wrap: wrap;
-    justify-content: center; margin-bottom: 56px; position: relative; z-index: 1;
-  }
+
 
   .terminal {
     background: var(--bg-3); border: 1px solid var(--border-o);
@@ -244,21 +252,21 @@ const CSS = `
     position: relative; overflow: hidden;
   }
   .path-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; }
-  .path-card.hosted::before { background: linear-gradient(90deg, var(--orange), var(--orange-l)); }
-  .path-card.self::before   { background: linear-gradient(90deg, var(--red), var(--orange)); }
-  .path-card.hosted:hover { border-color: var(--border-o); background: rgba(232,93,4,0.02); }
-  .path-card.self:hover   { border-color: var(--border-r); background: rgba(220,38,38,0.02); }
+  .path-card.instant::before { background: linear-gradient(90deg, var(--orange), var(--orange-l)); }
+  .path-card.watched::before { background: linear-gradient(90deg, var(--red), var(--orange)); }
+  .path-card.instant:hover { border-color: var(--border-o); background: rgba(232,93,4,0.02); }
+  .path-card.watched:hover { border-color: var(--border-r); background: rgba(220,38,38,0.02); }
 
   .path-tag {
     display: inline-flex; align-items: center; gap: 6px;
     font-family: var(--mono); font-size: 9px; letter-spacing: 0.16em; text-transform: uppercase;
     padding: 4px 12px; border-radius: 2px; width: fit-content;
   }
-  .path-tag.hosted { background: rgba(232,93,4,0.08); color: var(--orange-l); border: 1px solid var(--border-o); }
-  .path-tag.self   { background: rgba(220,38,38,0.08); color: var(--red-l);    border: 1px solid var(--border-r); }
+  .path-tag.instant { background: rgba(232,93,4,0.08); color: var(--orange-l); border: 1px solid var(--border-o); }
+  .path-tag.watched { background: rgba(220,38,38,0.08); color: var(--red-l);    border: 1px solid var(--border-r); }
 
   .path-title { font-family: var(--display); font-size: 22px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text); }
-  .path-desc  { font-size: 14px; line-height: 1.75; color: var(--text-2); }
+  .path-desc  { font-size: 14px; line-height: 1.75; color: var(--text-2); flex: 1; }
 
   .path-example {
     background: var(--bg); border-radius: 3px; padding: 14px 16px;
@@ -278,16 +286,48 @@ const CSS = `
     width: 5px; height: 5px; border-radius: 1px;
     margin-top: 7px; flex-shrink: 0; transform: rotate(45deg);
   }
-  .hosted .path-feature-dot { background: var(--orange-l); }
-  .self   .path-feature-dot { background: var(--red-l); }
+  .instant .path-feature-dot { background: var(--orange-l); }
+  .watched .path-feature-dot { background: var(--red-l); }
+
+  .path-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 20px; border-radius: 3px; margin-top: 8px; width: fit-content;
+    font-family: var(--condensed); font-size: 12px; font-weight: 700;
+    letter-spacing: 0.14em; text-transform: uppercase; transition: all 0.15s;
+    background: var(--orange); color: #fff;
+    box-shadow: 0 2px 16px var(--orange-g); border: 1px solid var(--orange);
+    cursor: pointer;
+  }
+  .path-cta:hover { background: var(--orange-l); transform: translateY(-1px); }
+  .path-cta.coming {
+    background: transparent; color: var(--text-3);
+    border-color: var(--border); box-shadow: none;
+  }
+  .path-cta.coming:hover { color: var(--orange-l); border-color: var(--border-o); transform: none; }
+
+  /* ── Self-host footnote ── */
+  .selfhost-note {
+    max-width: 900px; width: 100%; margin-top: 20px;
+    padding: 18px 24px; border: 1px solid var(--border); border-radius: 3px;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 24px;
+    flex-wrap: wrap;
+  }
+  .selfhost-note-text {
+    font-family: var(--mono); font-size: 11px; color: var(--text-3); line-height: 1.65;
+  }
+  .selfhost-note-text strong { color: var(--text-2); }
+  .selfhost-note-link {
+    font-family: var(--condensed); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text-3); white-space: nowrap; transition: color 0.15s; flex-shrink: 0;
+  }
+  .selfhost-note-link:hover { color: var(--orange-l); }
 
   /* ── What we actually see callout ── */
   .what-we-see {
     max-width: 900px; width: 100%;
-    background: var(--bg-2);
-    border: 1px solid rgba(232,93,4,0.12);
-    border-radius: 4px; padding: 28px 32px;
-    margin-top: 24px;
+    background: var(--bg-2); border: 1px solid rgba(232,93,4,0.12);
+    border-radius: 4px; padding: 28px 32px; margin-top: 24px;
   }
   .what-we-see-title {
     font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em;
@@ -296,17 +336,12 @@ const CSS = `
   }
   .what-we-see-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
   .what-we-see-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px; }
-  .what-we-see-row {
-    display: flex; gap: 10px; align-items: baseline;
-    font-family: var(--mono); font-size: 11px;
-  }
+  .what-we-see-row { display: flex; gap: 10px; align-items: baseline; font-family: var(--mono); font-size: 11px; }
   .wws-perm  { color: var(--orange-l); min-width: 140px; flex-shrink: 0; }
   .wws-desc  { color: var(--text-3); }
   .wws-note  {
-    margin-top: 16px; padding-top: 14px;
-    border-top: 1px solid var(--border);
-    font-family: var(--mono); font-size: 11px;
-    color: var(--text-3); line-height: 1.65;
+    margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; color: var(--text-3); line-height: 1.65;
   }
   .wws-note strong { color: var(--text-2); }
   .wws-note em { color: var(--text-3); font-style: italic; }
@@ -383,21 +418,9 @@ const CSS = `
   .footer-links a:hover { color: var(--orange-l); }
 
   @media (max-width: 768px) {
-    nav {
-      padding: 12px 16px;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-    /* wordmark stays left, status pill goes to its own row */
-    nav > div:nth-child(2) {
-      order: 3;
-      width: 100%;
-    }
-    /* nav links stack below wordmark */
-    .nav-links {
-      order: 2;
-      margin-left: auto;
-    }
+    nav { padding: 12px 16px; flex-wrap: wrap; gap: 10px; }
+    nav > div:nth-child(2) { order: 3; width: 100%; }
+    .nav-links { order: 2; margin-left: auto; }
     .hero { padding: 56px 20px 48px; min-height: auto; }
     .two-paths { padding: 48px 16px; }
     .paths-grid { grid-template-columns: 1fr; }
@@ -406,256 +429,297 @@ const CSS = `
     .features { grid-template-columns: 1fr; }
     .feature { padding: 32px 20px; }
     .incident { padding: 48px 16px; }
-    footer {
-      flex-direction: column;
-      gap: 16px;
-      text-align: center;
-      padding: 24px 16px;
-    }
+    footer { flex-direction: column; gap: 16px; text-align: center; padding: 24px 16px; }
     .footer-links { flex-wrap: wrap; justify-content: center; gap: 16px; }
   }
 `;
 
-export default function LandingPage() {
+export default function LandingPage({ user }: { user?: any }) {
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
 
-      <nav aria-label="Main navigation">
-        <a href="/">
-          <span className="wordmark">
-            <span className="wordmark-flame">▲</span> FLAREUP
-          </span>
-        </a>
-        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <span className="status-pill" aria-label="System status: nominal">
-            <span className="status-dot" aria-hidden="true" />Systems nominal
-          </span>
-        </div>
-        <div className="nav-links">
-          <a href="https://github.com/QuinnsCode/flareup" className="btn-ghost" target="_blank" rel="noopener">
-            GitHub
+      <FireLayout>
+        <nav aria-label="Main navigation">
+          <a href="/">
+            <span className="wordmark">
+              <span className="wordmark-flame">▲</span> FLAREUP
+            </span>
           </a>
-          <a href="/dashboard" className="btn-primary">Open Dashboard</a>
-        </div>
-      </nav>
-
-      <main>
-        {/* Hero */}
-        <section className="hero" aria-labelledby="hero-heading">
-          <div className="hero-alert">
-            <span className="alert-blink" aria-hidden="true" />
-            ALERT — $8,000 Cloudflare bill detected — 03:47 UTC
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            <span className="status-pill" aria-label="System status: nominal">
+              <span className="status-dot" aria-hidden="true" />Systems nominal
+            </span>
           </div>
-          <h1 id="hero-heading" className="hero-title">
-            Stop the<br /><em>meltdown</em><br /><span className="danger">before</span> it starts.
-          </h1>
-          <p className="hero-sub">
-            Real-time Cloudflare cost monitoring. Workers AI, KV, D1, R2 — tracked live, alerted fast, before the invoice arrives.
-          </p>
-          <p className="hero-aside">// <span>$0.011 / 1k neurons</span> adds up faster than you think</p>
-          <div className="hero-cta">
-          <a href="/dashboard" className="btn-primary">Open Dashboard</a>
-            <a href="https://github.com/QuinnsCode/flareup" className="btn-outline" target="_blank" rel="noopener">
-              Self-host free →
+          <div className="nav-links">
+            <a href="https://github.com/QuinnsCode/flareup" className="btn-ghost" target="_blank" rel="noopener">
+              GitHub
             </a>
+            {user
+              ? <a href="/dashboard" className="btn-primary">Open Dashboard</a>
+              : <>
+                  <a href="/user/login" className="btn-ghost">Sign in</a>
+                  <a href="/user/signup" className="btn-primary">Get started</a>
+                </>
+            }
           </div>
-          <div className="terminal" aria-hidden="true" role="presentation">
-            <div className="terminal-header">
-              <div className="terminal-header-dots"><span /><span /><span /></div>
-              <span>FLAREUP — BURN RATE MONITOR</span>
-              <span>{new Date().toISOString().slice(0, 10)}</span>
-            </div>
-            <div className="terminal-body">
-              <div className="terminal-line"><span className="t-prompt">›</span><span className="t-dim">checking workers AI usage...</span></div>
-              <div className="terminal-line"><span className="t-prompt">›</span><span className="t-warn">neurons_today</span><span className="t-dim"> =</span><span className="t-val"> 847,293</span><span className="t-dim"> (free: 10k/day)</span></div>
-              <div className="terminal-line"><span className="t-prompt">›</span><span className="t-warn">projected_month_end</span><span className="t-dim"> =</span><span className="t-danger"> $2,847.40</span></div>
-              <div className="terminal-line"><span className="t-prompt">›</span><span className="t-dim">budget_threshold (75%)</span><span className="t-danger"> BREACHED</span></div>
-              <div className="terminal-line"><span className="t-prompt">›</span><span className="t-ok">alert dispatched</span><span className="t-dim"> → slack #infra-alerts</span></div>
-              <div className="terminal-line"><span className="t-prompt">›</span><span className="t-dim">awaiting input</span><span className="cursor" /></div>
-            </div>
-          </div>
-        </section>
+        </nav>
 
-        {/* Two paths */}
-        <section className="two-paths" aria-labelledby="paths-heading">
-          <div className="section-eyebrow">Two ways to deploy</div>
-          <h2 id="paths-heading" className="section-title">Pick your setup</h2>
-
-          <div className="paths-grid">
-            {/* Hosted */}
-            <div className="path-card hosted">
-              <span className="path-tag hosted"><Eye size={10} /> Hosted dashboard</span>
-              <div className="path-title">Instant visibility</div>
-              <div className="path-desc">
-                Paste a read-only API token. We verify it has zero write access and show you a live cost dashboard.
-                Your token transits our proxy to reach Cloudflare — we never store it anywhere.
-                Close the tab and it's gone.
-              </div>
-              <div className="path-example orange">
-                {`${env.APP_URL}`}/dashboard<br />
-                <span className="dim">→ token verified read-only</span><br />
-                <span className="dim">→ lives in browser memory only</span><br />
-                <span className="dim">→ gone on tab close</span>
-              </div>
-              <div className="path-features">
-                {[
-                  "Write permissions rejected on connect — we check the CF permissions API",
-                  "Token in browser memory only — no database, no cookie, no log",
-                  "Transits our Worker proxy to reach CF GraphQL (CORS limitation)",
-                  "Workers · KV · D1 · R2 · Workers AI · Durable Objects",
-                ].map(f => (
-                  <div className="path-feature" key={f}><span className="path-feature-dot" aria-hidden="true" />{f}</div>
-                ))}
-              </div>
-            </div>
-
-            {/* Self-hosted */}
-            <div className="path-card self">
-              <span className="path-tag self"><Bell size={10} /> Self-hosted alerts</span>
-              <div className="path-title">Background sentinel</div>
-              <div className="path-desc">
-                Deploy a Worker to your own Cloudflare account. Your token never leaves your infra — not even a proxy hop.
-                Runs every 5 minutes, fires spike detection, burn rate alerts, and daily reports.
-              </div>
-              <div className="path-example red">
-                <span className="dim">$ </span>npx create-flareup<br />
-                <span className="dim">$ </span>wrangler secret put CLOUDFLARE_API_TOKEN<br />
-                <span className="dim">$ </span>wrangler deploy<br />
-                <span className="dim"># your account, your infra, $0 cost</span>
-              </div>
-              <div className="path-features">
-                {[
-                  "Token stored as a Worker secret in your own CF account — we never see it",
-                  "Cron every 5min — spike detection against 7-day rolling average",
-                  "Webhook to Slack, Discord, PagerDuty, or any HTTP endpoint",
-                  "Runs on CF free tier — costs you nothing",
-                ].map(f => (
-                  <div className="path-feature" key={f}><span className="path-feature-dot" aria-hidden="true" />{f}</div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* What we actually read */}
-          <div className="what-we-see">
-            <div className="what-we-see-title">What the token can actually read</div>
-            <div className="what-we-see-grid">
-              {[
-                ["Account Analytics",     "Usage counts via GraphQL — not your data"],
-                ["Billing",               "Invoice totals — how much you owe CF"],
-                ["Workers AI",            "Neuron counts per model"],
-                ["Workers KV Storage",    "Read/write op counts — not key contents"],
-                ["Workers R2 Storage",    "Op counts + storage GB — not file contents"],
-                ["D1",                    "Row read/write counts — not your rows"],
-                ["Queues",                "Message op counts"],
-                ["Stream",                "Minutes stored/delivered"],
-                ["Cloudflare Images",     "Images stored + transformations"],
-                ["Workers Scripts",       "Script names — not code"],
-                ["Workers Observability", "CPU time, error rates"],
-                ["Vectorize",             "Query counts + dimensions stored"],
-              ].map(([perm, desc]) => (
-                <div className="what-we-see-row" key={perm}>
-                  <span className="wws-perm">{perm}</span>
-                  <span className="wws-desc">{desc}</span>
-                </div>
-              ))}
-            </div>
-            <div className="wws-note">
-              <strong>This is your accountant's view, not your admin's.</strong>{" "}
-              Usage numbers and spend — not your DNS, not your code, not your stored data.
-              You control every permission. Remove anything you're not comfortable with before creating the token.
-              {" "}<em>// write access of any kind is rejected on connect</em>
-            </div>
-          </div>
-        </section>
-
-        {/* Features */}
-        <section className="features" aria-label="Features">
-          {[
-            {
-              icon: <Flame size={24} strokeWidth={1.6} />,
-              title: "Workers AI — the big one",
-              desc: "Neurons bill at $0.011/1k. A busy llama-3.3-70b day can torch your free tier in minutes. FlareUp tracks by model, projects month-end, and fires before the damage is done.",
-            },
-            {
-              icon: <Zap size={24} strokeWidth={1.6} />,
-              title: "Spike detection",
-              desc: "Compares today's usage against your 7-day rolling average. If something 3× spikes — a runaway loop, a bot, a misconfigured retry — you hear about it in under 10 minutes.",
-            },
-            {
-              icon: <ShieldCheck size={24} strokeWidth={1.6} />,
-              title: "Read-only by force",
-              desc: "Your token is validated against the CF permissions API on connect. If it has write access — deploy, delete, DNS — FlareUp rejects it. Your infra stays untouchable.",
-            },
-            {
-              icon: <Terminal size={24} strokeWidth={1.6} />,
-              title: "KV · D1 · R2 · DO",
-              desc: "Every billable Cloudflare product tracked. KV reads, D1 rows, R2 ops, Durable Object duration. One dashboard. One projection. No blind spots.",
-            },
-            {
-              icon: <Bell size={24} strokeWidth={1.6} />,
-              title: "Alert tiers",
-              desc: "Configure 25%, 50%, 75%, 100% budget tiers. Each tier fires its own webhooks, repeats on an interval, and can target different channels — #infra vs #on-call.",
-            },
-            {
-              icon: <Eye size={24} strokeWidth={1.6} />,
-              title: "Zero infra, zero cost",
-              desc: "Hosted dashboard is static on Pages. Self-hosted Worker runs on the free tier. No database, no relay, no monthly bill for the monitoring itself.",
-            },
-          ].map(f => (
-            <div className="feature" key={f.title}>
-              <div className="feature-icon">{f.icon}</div>
-              <div className="feature-title">{f.title}</div>
-              <div className="feature-desc">{f.desc}</div>
-            </div>
-          ))}
-        </section>
-
-        {/* The incident */}
-        <section className="incident" aria-labelledby="incident-heading">
-          <div className="section-eyebrow" id="incident-heading" style={{ marginBottom: 32 }}>The incident that built this</div>
-          <div className="incident-card">
-            <div className="incident-header">
+        <main>
+          {/* Hero */}
+          <section className="hero" aria-labelledby="hero-heading">
+            <div className="hero-alert">
               <span className="alert-blink" aria-hidden="true" />
-              <span className="incident-level">SEV-1 BILLING INCIDENT</span>
-              <span className="incident-time">detected 03:47 UTC</span>
+              ALERT — $8,000 Cloudflare bill detected — 03:47 UTC
             </div>
-            <div className="incident-body">
-              {[
-                ["service",          "Workers AI — @cf/meta/llama-3.3-70b-instruct", ""],
-                ["neurons_billed",   "8,291,847,392",  "bad"],
-                ["invoice_total",    "$8,247.19",       "bad"],
-                ["first_alert_sent", "never",           "bad"],
-                ["monitoring_tool",  "none",            "bad"],
-                ["resolution",       "built FlareUp",   ""],
-              ].map(([k, v, cls]) => (
-                <div className="incident-row" key={k}>
-                  <span className="incident-key">{k}</span>
-                  <span className={`incident-val${cls ? ` ${cls}` : ""}`}>{v}</span>
-                </div>
-              ))}
+            <h1 id="hero-heading" className="hero-title">
+              Stop the<br /><em>meltdown</em><br /><span className="danger">before</span> it starts.
+            </h1>
+            <p className="hero-sub">
+              Real-time Cloudflare cost monitoring. Workers AI, KV, D1, R2 — tracked live, alerted fast, before the invoice arrives.
+            </p>
+            <p className="hero-aside">// <span>$0.011 / 1k neurons</span> adds up faster than you think</p>
+            <div className="hero-cta">
+              <a href="/dashboard" className="btn-primary">Open Dashboard</a>
+              <a href="#setup" className="btn-outline">How it works →</a>
             </div>
-            <div className="incident-footer">
-              <span className="status-dot" />
-              FLAREUP ACTIVE — this incident cannot happen again
+            <div className="terminal" aria-hidden="true" role="presentation">
+              <div className="terminal-header">
+                <div className="terminal-header-dots"><span /><span /><span /></div>
+                <span>FLAREUP — BURN RATE MONITOR</span>
+                <span>{new Date().toISOString().slice(0, 10)}</span>
+              </div>
+              <div className="terminal-body">
+                <div className="terminal-line"><span className="t-prompt">›</span><span className="t-dim">checking workers AI usage...</span></div>
+                <div className="terminal-line"><span className="t-prompt">›</span><span className="t-warn">neurons_today</span><span className="t-dim"> =</span><span className="t-val"> 847,293</span><span className="t-dim"> (free: 10k/day)</span></div>
+                <div className="terminal-line"><span className="t-prompt">›</span><span className="t-warn">projected_month_end</span><span className="t-dim"> =</span><span className="t-danger"> $2,847.40</span></div>
+                <div className="terminal-line"><span className="t-prompt">›</span><span className="t-dim">budget_threshold (75%)</span><span className="t-danger"> BREACHED</span></div>
+                <div className="terminal-line"><span className="t-prompt">›</span><span className="t-ok">alert dispatched</span><span className="t-dim"> → slack #infra-alerts</span></div>
+                <div className="terminal-line"><span className="t-prompt">›</span><span className="t-dim">awaiting input</span><span className="cursor" /></div>
+              </div>
             </div>
-          </div>
-        </section>
-      </main>
+          </section>
 
-      <footer aria-label="Site footer">
-        <span className="footer-brand">
-          <span style={{ color: "var(--orange-l)" }}>▲</span> FLAREUP —{" "}
-          <a href={`https://${env.APP_URL}`} style={{ color: "var(--text-2)", marginLeft: 4 }}>{env.APP_URL}</a>
-        </span>
-        <div className="footer-links">
-          <a href="https://github.com/QuinnsCode/flareup" target="_blank" rel="noopener">GitHub</a>
-          <a href="/changelog">Changelog</a>
-          <a href="/terms">Terms</a>
-          <a href="/privacy">Privacy</a>
-        </div>
-      </footer>
+          {/* Two paths */}
+          <section className="two-paths" id="setup" aria-labelledby="paths-heading">
+            <div className="section-eyebrow">Two ways in</div>
+            <h2 id="paths-heading" className="section-title">Pick your setup</h2>
+
+            <div className="paths-grid">
+
+              {/* Instant dashboard */}
+              <div className="path-card instant">
+                <span className="path-tag instant"><Eye size={10} /> No account needed</span>
+                <div className="path-title">We already made it.<br />You just say yes.</div>
+                <div className="path-desc">
+                  Click below. Cloudflare opens with every permission pre-filled, named FlareUp, read-only.
+                  You tune it, accept it, or reject it — your call entirely.
+                  Copy the token, paste it in the dashboard. That's it.
+                  Close the tab after. Delete the token if you want. Zero strings.
+                </div>
+                <div className="path-example orange">
+                  <span className="dim">1. </span>click → CF opens, token pre-built<br />
+                  <span className="dim">2. </span>add, remove, or change anything<br />
+                  <span className="dim">3. </span>create → copy → paste here<br />
+                  <span className="dim">4. </span>close tab. delete token. done.
+                </div>
+                <div className="path-features">
+                  {[
+                    "All permissions read-only — we pre-fill, you approve",
+                    "Token in browser memory only — no database, no cookie, no log",
+                    "Write access rejected on connect regardless of what you paste",
+                    "Workers · KV · D1 · R2 · Workers AI · DO · Pages · Vectorize",
+                  ].map(f => (
+                    <div className="path-feature" key={f}><span className="path-feature-dot" aria-hidden="true" />{f}</div>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" as const, marginTop: 8 }}>
+                  <a
+                    href="https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=%5B%7B%22key%22%3A%22account_analytics%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22billing%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22ai%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_kv_storage%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_r2%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22d1%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22queues%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22stream%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22images%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22pages%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_scripts%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22workers_observability%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22vectorize%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22containers%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22hyperdrive%22%2C%22type%22%3A%22read%22%7D%2C%7B%22key%22%3A%22browser_rendering%22%2C%22type%22%3A%22read%22%7D%5D&name=FlareUp"
+                    className="path-cta"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    Create my token in CF →
+                  </a>
+                  <a href="/dashboard?connect=true" className="path-cta" style={{ background: "transparent", color: "var(--text-3)", border: "1px solid var(--border)", boxShadow: "none" }}>
+                    I have a token →
+                  </a>
+                </div>
+              </div>
+
+              {/* Hosted alerts */}
+              <div className="path-card watched">
+                <span className="path-tag watched"><Bell size={10} /> Hosted alerts</span>
+                <div className="path-title">We do it for you</div>
+                <div className="path-desc">
+                  Sign up once, connect your token. We handle the polling, the spike detection,
+                  the 3am alerts — all of it. Your token is encrypted in your browser before
+                  it ever reaches us. We store ciphertext. We run the numbers. You get paged.
+                  Delete your account and it's cryptographically gone — not policy-gone, gone.
+                </div>
+                <div className="path-example red">
+                  <span className="dim">→ token encrypted in your browser</span><br />
+                  <span className="dim">→ we store ciphertext, never plaintext</span><br />
+                  <span className="dim">→ we poll. we detect. we alert.</span><br />
+                  <span className="dim">→ delete account = key unlocks nothing</span>
+                </div>
+                <div className="path-features">
+                  {[
+                    "Spike detection against your 7-day rolling average — fires at 3×",
+                    "Budget tiers at 25% · 50% · 75% · 100% with per-tier webhooks",
+                    "Slack · Discord · PagerDuty · any HTTP endpoint",
+                    "Delete anytime — ciphertext gone, our key unlocks nothing",
+                  ].map(f => (
+                    <div className="path-feature" key={f}><span className="path-feature-dot" aria-hidden="true" />{f}</div>
+                  ))}
+                </div>
+                {/* Client island — only interactive piece on the page */}
+                <ModalTrigger />
+              </div>
+            </div>
+
+            {/* Self-host footnote */}
+            <div className="selfhost-note">
+              <span className="selfhost-note-text">
+                <strong>Prefer to run it yourself?</strong>{" "}
+                Deploy to your own Cloudflare account. Your token never leaves your infra — not even a proxy hop.
+                Runs on CF free tier. Costs you nothing except the setup.
+              </span>
+              <a
+                href="https://github.com/QuinnsCode/flareup"
+                className="selfhost-note-link"
+                target="_blank"
+                rel="noopener"
+              >
+                Self-host on GitHub →
+              </a>
+            </div>
+
+            {/* What we actually read */}
+            <div className="what-we-see">
+              <div className="what-we-see-title">What the token can actually read</div>
+              <div className="what-we-see-grid">
+                {[
+                  ["Account Analytics",     "Usage counts via GraphQL — not your data"],
+                  ["Billing",               "Invoice totals — how much you owe CF"],
+                  ["Workers AI",            "Neuron counts per model"],
+                  ["Workers KV Storage",    "Read/write op counts — not key contents"],
+                  ["Workers R2 Storage",    "Op counts + storage GB — not file contents"],
+                  ["D1",                    "Row read/write counts — not your rows"],
+                  ["Queues",                "Message op counts"],
+                  ["Stream",                "Minutes stored/delivered"],
+                  ["Cloudflare Images",     "Images stored + transformations"],
+                  ["Pages",                 "Build counts + deploy stats"],
+                  ["Workers Scripts",       "Script names — not code"],
+                  ["Workers Observability", "CPU time, error rates"],
+                  ["Vectorize",             "Query counts + dimensions stored"],
+                  ["Containers",            "Instance counts + runtime"],
+                  ["Hyperdrive",            "Connection counts"],
+                  ["Browser Rendering",     "Session counts"],
+                ].map(([perm, desc]) => (
+                  <div className="what-we-see-row" key={perm}>
+                    <span className="wws-perm">{perm}</span>
+                    <span className="wws-desc">{desc}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="wws-note">
+                <strong>This is your accountant's view, not your admin's.</strong>{" "}
+                Usage numbers and spend — not your DNS, not your code, not your stored data.
+                You control every permission. Remove anything you're not comfortable with before creating the token.
+                {" "}<em>// write access of any kind is rejected on connect</em>
+              </div>
+            </div>
+          </section>
+
+          {/* Features */}
+          <section className="features" aria-label="Features">
+            {[
+              {
+                icon: <Flame size={24} strokeWidth={1.6} />,
+                title: "Workers AI — the big one",
+                desc: "Neurons bill at $0.011/1k. A busy llama-3.3-70b day can torch your free tier in minutes. FlareUp tracks by model, projects month-end, and fires before the damage is done.",
+              },
+              {
+                icon: <Zap size={24} strokeWidth={1.6} />,
+                title: "Spike detection",
+                desc: "Compares today's usage against your 7-day rolling average. If something 3× spikes — a runaway loop, a bot, a misconfigured retry — you hear about it in under 10 minutes.",
+              },
+              {
+                icon: <ShieldCheck size={24} strokeWidth={1.6} />,
+                title: "Read-only by force",
+                desc: "Your token is validated against the CF permissions API on connect. If it has write access — deploy, delete, DNS — FlareUp rejects it. Your infra stays untouchable.",
+              },
+              {
+                icon: <Terminal size={24} strokeWidth={1.6} />,
+                title: "KV · D1 · R2 · DO",
+                desc: "Every billable Cloudflare product tracked. KV reads, D1 rows, R2 ops, Durable Object duration. One dashboard. One projection. No blind spots.",
+              },
+              {
+                icon: <Bell size={24} strokeWidth={1.6} />,
+                title: "Alert tiers",
+                desc: "Configure 25%, 50%, 75%, 100% budget tiers. Each tier fires its own webhooks, repeats on an interval, and can target different channels — #infra vs #on-call.",
+              },
+              {
+                icon: <Eye size={24} strokeWidth={1.6} />,
+                title: "Zero infra overhead",
+                desc: "Hosted alerts run on our infrastructure. Self-hosted runs on CF free tier. No database to manage, no relay to babysit, no monthly bill for the monitoring itself.",
+              },
+            ].map(f => (
+              <div className="feature" key={f.title}>
+                <div className="feature-icon">{f.icon}</div>
+                <div className="feature-title">{f.title}</div>
+                <div className="feature-desc">{f.desc}</div>
+              </div>
+            ))}
+          </section>
+
+          {/* The incident */}
+          <section className="incident" aria-labelledby="incident-heading">
+            <div className="section-eyebrow" id="incident-heading" style={{ marginBottom: 32 }}>The incident that built this</div>
+            <div className="incident-card">
+              <div className="incident-header">
+                <span className="alert-blink" aria-hidden="true" />
+                <span className="incident-level">SEV-1 BILLING INCIDENT</span>
+                <span className="incident-time">detected 03:47 UTC</span>
+              </div>
+              <div className="incident-body">
+                {[
+                  ["service",          "Workers AI — @cf/meta/llama-3.3-70b-instruct", ""],
+                  ["neurons_billed",   "8,291,847,392",  "bad"],
+                  ["invoice_total",    "$8,247.19",       "bad"],
+                  ["first_alert_sent", "never",           "bad"],
+                  ["monitoring_tool",  "none",            "bad"],
+                  ["resolution",       "built FlareUp",   "ok"],
+                ].map(([k, v, cls]) => (
+                  <div className="incident-row" key={k}>
+                    <span className="incident-key">{k}</span>
+                    <span className={`incident-val${cls ? ` ${cls}` : ""}`}>{v}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="incident-footer">
+                <span className="status-dot" />
+                FLAREUP ACTIVE — this incident cannot happen again
+              </div>
+            </div>
+          </section>
+        </main>
+
+        <footer aria-label="Site footer">
+          <span className="footer-brand">
+            <span style={{ color: "var(--orange-l)" }}>▲</span> FLAREUP —{" "}
+            <a href={`https://${env.APP_URL}`} style={{ color: "var(--text-2)", marginLeft: 4 }}>{env.APP_URL}</a>
+          </span>
+          <div className="footer-links">
+            <a href="https://github.com/QuinnsCode/flareup" target="_blank" rel="noopener">GitHub</a>
+            <a href="/changelog">Changelog</a>
+            <a href="/terms">Terms</a>
+            <a href="/privacy">Privacy</a>
+          </div>
+        </footer>
+      </FireLayout>
     </>
   );
 }

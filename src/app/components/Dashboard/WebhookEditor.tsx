@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import type { Webhook, AlertConfig } from "@/lib/alerts/config";
+import type { WebhookConfig, AlertConfig } from "@/lib/alerts/config";
 
 type Props = {
   initialConfig: AlertConfig;

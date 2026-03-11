@@ -87,7 +87,7 @@ Fill in every `paste-your-id-here` in `wrangler.jsonc`. This file is gitignored 
   "routes": ["yourdomain.com/*", "*.yourdomain.com/*"],
   "vars": {
     "BETTER_AUTH_URL": "https://yourdomain.com",
-    "PRIMARY_DOMAIN":  "yourdomain.com"
+    "APP_URL":  "yourdomain.com"
   },
   "d1_databases": [
     {

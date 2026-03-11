@@ -5,7 +5,6 @@ import { useState } from "react";
 const CSS = `
   .cf-connect {
     width: 100%;
-    max-width: 480px;
     font-family: 'Barlow', sans-serif;
   }
 
@@ -285,6 +284,28 @@ const CSS = `
     color: #8a9e8a;
     display: flex; align-items: center; gap: 8px;
   }
+  .cf-already-have {
+    display: block; width: 100%; padding: 12px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.06); border-radius: 3px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #3a4e3a; cursor: pointer; transition: all 0.15s;
+    margin-bottom: 20px;
+  }
+  .cf-already-have:hover { color: #8a9e8a; border-color: rgba(255,255,255,0.12); }
+
+  .cf-inflight-note {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; color: #3a4e3a;
+    line-height: 1.7; letter-spacing: 0.03em;
+    padding: 10px 14px;
+    background: rgba(232,93,4,0.03);
+    border: 1px solid rgba(232,93,4,0.08);
+    border-radius: 3px;
+  }
+  .cf-inflight-note strong { color: #8a9e8a; }
+  .cf-inflight-note em { color: #f48c06; font-style: normal; }
 `;
 
 type Step = "ask" | "howto" | "form" | "connecting";
@@ -421,38 +442,47 @@ export function ConnectCloudflareAnalytics({ onConnected }: Props) {
             {/* ── Step 1: ask ── */}
             {step === "ask" && (
               <>
-                <div className="cf-card-title">Read-only API token</div>
-                <div className="cf-card-sub">// required to fetch your usage data</div>
+                <div className="cf-card-title">We already made it.</div>
+                <div className="cf-card-sub">// add, remove, or change anything — it's your token</div>
 
-                <div className="cf-zero-storage">
-                  We need your credentials to make requests on your behalf.{" "}
-                  <strong>We store nothing</strong> — not in a database, not in a cookie,
-                  not in a log file. Your token lives only in your browser tab.
-                  Close it and it's gone.
-                  <span className="cf-zs-dark">
-                    // (Have you seen what happens to user data after acquisitions? Yeah. We have. Hard pass.)
-                  </span>
-                </div>
+                <a
+                  className="cf-deeplink-btn"
+                  style={{ marginBottom: 10 }}
+                  href={`https://dash.cloudflare.com/profile/api-tokens?permissionGroupKeys=${encodeURIComponent(JSON.stringify([
+                    {key:"account_analytics",type:"read"},
+                    {key:"billing",type:"read"},
+                    {key:"ai",type:"read"},
+                    {key:"workers_kv_storage",type:"read"},
+                    {key:"workers_r2",type:"read"},
+                    {key:"d1",type:"read"},
+                    {key:"queues",type:"read"},
+                    {key:"stream",type:"read"},
+                    {key:"images",type:"read"},
+                    {key:"pages",type:"read"},
+                    {key:"workers_scripts",type:"read"},
+                    {key:"workers_observability",type:"read"},
+                    {key:"vectorize",type:"read"},
+                    {key:"containers",type:"read"},
+                    {key:"hyperdrive",type:"read"},
+                    {key:"browser_rendering",type:"read"},
+                  ]))}&name=FlareUp`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => setTimeout(() => setStep("form"), 800)}
+                >
+                  Open Cloudflare — token pre-built →
+                </a>
 
-                <div className="cf-selfhost-pill">
-                  <span>⬡</span> Self-hosted version coming soon — run this entirely in your own CF account
-                </div>
+                <button className="cf-already-have" onClick={() => setStep("form")}>
+                  I already have a token →
+                </button>
 
-                <p style={{ fontSize: 14, color: "#8a9e8a", lineHeight: 1.7, marginBottom: 24 }}>
-                  FlareUp needs a token with{" "}
-                  <strong style={{ color: "#e8f0e8" }}>Analytics: Read</strong> access.
-                  Write permissions are rejected on connect — your infra stays untouchable.
-                </p>
-
-                <div className="cf-yesno">
-                  <button className="cf-yesno-btn yes" onClick={() => setStep("form")}>
-                    <span className="cf-yesno-icon">✓</span>
-                    I have a token
-                  </button>
-                  <button className="cf-yesno-btn no" onClick={() => setStep("howto")}>
-                    <span className="cf-yesno-icon">?</span>
-                    Show me how
-                  </button>
+                <div className="cf-inflight-note">
+                  <strong>Your token is in-flight only.</strong> It transits our Worker once to hit the CF GraphQL API, then it's gone. We don't store it, log it, or touch it again.
+                  {" "}<em>// close the tab and it vanishes entirely</em>
+                  <br /><br />
+                  Want alerts without babysitting this tab?{" "}
+                  <strong>Sign up for hosted alerts</strong> — that's the only time we ever hold onto your token, and it's encrypted in your browser before it reaches us.
                 </div>
               </>
             )}

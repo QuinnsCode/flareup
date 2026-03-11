@@ -3,9 +3,12 @@ import { route } from "rwsdk/router";
 import ChangelogPage from "./changelog/ChangelogPage";
 import AboutPage from "./about/AboutPage";
 import TermsPage from "./legal/TermsPage";
+import PrivacyPage from "./privacy/PrivacyPage";
 
 // ✅ Export individual routes
 export const changelogRoute = route("/changelog", ChangelogPage);
 export const aboutRoute = route("/about", AboutPage);
 export const termsRoute = route("/terms", TermsPage);
-export const legalRoute = route("/legal", TermsPage)
+export const legalRoute = route("/legal", TermsPage);
+export const privacyRoute = route("/privacy", PrivacyPage);
+

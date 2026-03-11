@@ -2,716 +2,404 @@
 
 import { useState, useTransition, useEffect, useRef } from "react";
 import type { AppContext } from "@/worker";
-import { 
-  FantasyBackground, 
-  FantasyCard, 
-  FantasyTitle, 
-  FantasyText, 
-  FantasyButton,
-  CaveEntrance,
-  WizardStudy
-} from "@/app/components/theme/FantasyTheme";
-
-// Tier configuration
-const TIERS = {
-  free: {
-    name: 'Free',
-    icon: '🏕️',
-    price: 0,
-    features: ['1 active game', '4 players per table', '3 deck slots', '24h game cleanup'],
-    color: 'border-stone-600'
-  },
-  starter: {
-    name: 'Founding Starter',
-    icon: '⚔️',
-    price: 1,
-    features: ['3 active games', '6 players per table', '10 deck slots', '1-week game cleanup', 'Priority support'],
-    color: 'border-amber-500',
-    popular: true
-  },
-  pro: {
-    name: 'Founding Pro',
-    icon: '👑',
-    price: 5,
-    features: ['10 active games', '8 players per table', 'Unlimited deck slots', '1-month game cleanup', 'Discord integration', 'Priority support'],
-    color: 'border-amber-400'
-  }
-};
 
 export default function BetterAuthSignup({ ctx }: { ctx: AppContext }) {
-  // User fields
-  const [displayName, setDisplayName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [displayName, setDisplayName]       = useState("");
+  const [email, setEmail]                   = useState("");
+  const [password, setPassword]             = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
-  // Lair/Org fields
-  const [lairName, setLairName] = useState("");
-  const [lairSlug, setLairSlug] = useState("");
-  
-  // ✅ Tier selection
-  const [selectedTier, setSelectedTier] = useState<'free' | 'starter' | 'pro'>('free');
-  
-  // ✅ Terms agreement
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
-  
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [result, setResult] = useState("");
-  const [isPending, startTransition] = useTransition();
-  const [isHydrated, setIsHydrated] = useState(false);
-  const [slugAvailable, setSlugAvailable] = useState<boolean | null>(null);
-  const [checkingSlug, setCheckingSlug] = useState(false);
+  const [workspaceName, setWorkspaceName]   = useState("");
+  const [workspaceSlug, setWorkspaceSlug]   = useState("");
+  const [agreedToTerms, setAgreedToTerms]   = useState(false);
+  const [showPassword, setShowPassword]     = useState(false);
+  const [showConfirm, setShowConfirm]       = useState(false);
+  const [result, setResult]                 = useState("");
+  const [resultType, setResultType]         = useState<"error" | "success">("error");
+  const [isPending, startTransition]        = useTransition();
+  const [isHydrated, setIsHydrated]         = useState(false);
+  const [slugAvailable, setSlugAvailable]   = useState<boolean | null>(null);
+  const [checkingSlug, setCheckingSlug]     = useState(false);
 
-  // Refs for debounce and abort control
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  const debounceRef      = useRef<NodeJS.Timeout | null>(null);
+  const abortRef         = useRef<AbortController | null>(null);
+
+  useEffect(() => { setIsHydrated(true); }, []);
 
   useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  // CLIENT-SIDE redirect if user is logged in
-  useEffect(() => {
-    if (ctx.user && isHydrated) {
-      window.location.href = "/dashboard";
-    }
+    if (ctx.user && isHydrated) window.location.href = "/dashboard";
   }, [ctx.user, isHydrated]);
 
-  // CLIENT-SIDE redirect if on subdomain
+  // Auto-fill workspace name from display name
   useEffect(() => {
-    if (isHydrated && typeof window !== 'undefined') {
-      const hostname = window.location.hostname;
-      const isSubdomain = hostname.split('.').length > 2 || 
-                         (hostname.includes('localhost') && hostname.startsWith('localhost') === false);
-      
-      if (isSubdomain) {
-        const parts = hostname.split('.');
-        const mainDomain = hostname.includes('localhost') 
-          ? 'localhost:5173' 
-          : parts.slice(-2).join('.');
-        const protocol = window.location.protocol;
-        const pathname = window.location.pathname;
-        
-        window.location.href = `${protocol}//${mainDomain}${pathname}`;
-      }
-    }
-  }, [isHydrated]);
-
-  // Auto-fill lair name when display name changes
-  useEffect(() => {
-    if (displayName && !lairName) {
-      setLairName(`${displayName}'s Lair`);
-    }
+    if (displayName && !workspaceName) setWorkspaceName(`${displayName}'s workspace`);
   }, [displayName]);
 
-  // Auto-generate slug from lair name
+  // Auto-generate slug from workspace name
   useEffect(() => {
-    if (lairName) {
-      const slug = lairName
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-|-$/g, '');
-      setLairSlug(slug);
+    if (workspaceName) {
+      const slug = workspaceName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      setWorkspaceSlug(slug);
     }
-  }, [lairName]);
+  }, [workspaceName]);
 
-  // Check slug availability (debounced with AbortController)
+  // Check slug availability (debounced)
   useEffect(() => {
-    // Clear previous timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (abortRef.current) abortRef.current.abort();
+    if (!workspaceSlug || workspaceSlug.length < 6) { setSlugAvailable(null); setCheckingSlug(false); return; }
 
-    // Abort previous request
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    if (!lairSlug || lairSlug.length < 6) {
-      setSlugAvailable(null);
-      setCheckingSlug(false);
-      return;
-    }
-
-    debounceTimerRef.current = setTimeout(async () => {
-      // Create new AbortController for this request
+    debounceRef.current = setTimeout(async () => {
       const controller = new AbortController();
-      abortControllerRef.current = controller;
-
+      abortRef.current = controller;
       setCheckingSlug(true);
       try {
-        const response = await fetch(`/api/main/check-username?username=${lairSlug}`, {
-          signal: controller.signal
-        });
-
-        // Only update state if not aborted
+        const res = await fetch(`/api/main/check-username?username=${workspaceSlug}`, { signal: controller.signal });
         if (!controller.signal.aborted) {
-          const { available } = await response.json() as any;
+          const { available } = await res.json() as any;
           setSlugAvailable(available);
         }
-      } catch (error) {
-        // Ignore abort errors
-        if (error instanceof Error && error.name === 'AbortError') {
-          return;
-        }
-
-        console.error('Error checking slug:', error);
-        if (!controller.signal.aborted) {
-          setSlugAvailable(null);
-        }
+      } catch (e) {
+        if (e instanceof Error && e.name === 'AbortError') return;
+        if (!controller.signal.aborted) setSlugAvailable(null);
       } finally {
-        if (!controller.signal.aborted) {
-          setCheckingSlug(false);
-        }
+        if (!controller.signal.aborted) setCheckingSlug(false);
       }
     }, 500);
 
-    // Cleanup function
     return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
     };
-  }, [lairSlug]);
+  }, [workspaceSlug]);
 
-  // Show loading state while redirecting logged-in users
-  if (ctx.user) {
-    return (
-      <FantasyBackground variant="adventure">
-        <div className="min-h-screen flex items-center justify-center px-4">
-          <FantasyCard className="p-8 text-center max-w-md" glowing={true}>
-            <div className="mb-6 text-6xl">🏰</div>
-            <FantasyTitle size="lg" className="mb-4">
-              Redirecting...
-            </FantasyTitle>
-            <FantasyText variant="primary" className="mb-4">
-              Taking you to your sanctum
-            </FantasyText>
-          </FantasyCard>
+  if (ctx.user) return (
+    <>
+      <style>{CSS}</style>
+      <div className="su-page su-page--centered">
+        <div className="su-card" style={{ textAlign: "center", padding: "40px" }}>
+          <div className="su-title">Redirecting…</div>
+          <div className="su-hint">// taking you to your dashboard</div>
         </div>
-      </FantasyBackground>
-    );
-  }
+      </div>
+    </>
+  );
 
   const handleSignup = async () => {
     try {
-      console.log('Starting signup for:', lairSlug, 'with tier:', selectedTier);
       setResult("");
-      
-      // Validate passwords match
-      if (password !== confirmPassword) {
-        setResult("Passwords do not match");
-        return;
-      }
+      if (password !== confirmPassword)      { setResultType("error"); setResult("Passwords do not match"); return; }
+      if (password.length < 8)               { setResultType("error"); setResult("Password must be at least 8 characters"); return; }
+      if (workspaceSlug.length < 6)          { setResultType("error"); setResult("Workspace URL must be at least 6 characters"); return; }
+      if (slugAvailable === false)           { setResultType("error"); setResult("That workspace URL is already taken"); return; }
+      if (!agreedToTerms)                    { setResultType("error"); setResult("You must agree to the Terms of Service"); return; }
 
-      // Validate slug length
-      if (lairSlug.length < 6) {
-        setResult("Lair subdomain must be at least 6 characters");
-        return;
-      }
-
-      // Validate slug is available
-      if (slugAvailable === false) {
-        setResult("Lair subdomain is not available");
-        return;
-      }
-
-      // ✅ Validate terms agreement
-      if (!agreedToTerms) {
-        setResult("You must agree to the Terms of Service");
-        return;
-      }
-      
-      // Import the server action
       const { signupWithOrg } = await import("@/app/serverActions/admin/signup");
-      
-      // Create FormData with all signup info
       const formData = new FormData();
-      formData.append('username', lairSlug);
-      formData.append('displayName', displayName);
-      formData.append('email', email);
-      formData.append('password', password);
-      formData.append('lairName', lairName);
-      formData.append('selectedTier', selectedTier);
-      
-      // Call server action to create user + org
-      const result = await signupWithOrg(formData);
-      
-      if (!result.success) {
-        setResult(`Signup failed: ${result.error}`);
-        return;
-      }
-      
-      console.log('✅ Signup successful:', result);
-      
-      // ✅ If paid tier selected, redirect to Lemon Squeezy checkout
-      if (selectedTier !== 'free' && result?.user?.id) {
-        setResult("Account created! Redirecting to checkout...");
-        
-        // Get variant ID based on tier
-        const variantId = selectedTier === 'starter' 
-          ? process.env.NEXT_PUBLIC_LEMON_SQUEEZY_STARTER_VARIANT_ID
-          : process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID;
-        
-        const checkoutUrl = `https://qntbr.lemonsqueezy.com/checkout/buy/${variantId}?checkout[email]=${encodeURIComponent(email)}&checkout[custom][user_id]=${result?.user.id}`;
-        
-        setTimeout(() => {
-          window.location.href = checkoutUrl;
-        }, 1500);
-        return;
-      }
-      
-      // ✅ Free tier - redirect to their subdomain
-      setResult("Account created! Redirecting to your lair...");
-      setTimeout(() => {
-        window.location.href = result.redirectUrl!;
-      }, 1500);
-      
-    } catch (error) {
-      console.error('Signup error:', error);
-      setResult(`Signup failed: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }
-  };
+      formData.append('username',      workspaceSlug);
+      formData.append('displayName',   displayName);
+      formData.append('email',         email);
+      formData.append('password',      password);
+      formData.append('lairName',      workspaceName);   // server action expects lairName
+      formData.append('selectedTier',  'free');
 
-  const handlePerformSignup = () => {
-    if (!displayName || !email || !password || !confirmPassword || !lairName || !lairSlug) {
-      setResult("All fields are required");
-      return;
-    }
-    
-    if (password !== confirmPassword) {
-      setResult("Passwords do not match");
-      return;
-    }
+      const res = await signupWithOrg(formData);
+      if (!res.success) { setResultType("error"); setResult(`Signup failed: ${res.error}`); return; }
 
-    if (password.length < 8) {
-      setResult("Password must be at least 8 characters");
-      return;
+      setResultType("success");
+      setResult("// account created — redirecting…");
+      setTimeout(() => { window.location.href = res.redirectUrl!; }, 1200);
+    } catch (err) {
+      setResultType("error");
+      setResult(`Signup failed: ${err instanceof Error ? err.message : "Unknown error"}`);
     }
-
-    if (lairSlug.length < 6) {
-      setResult("Lair subdomain must be at least 6 characters");
-      return;
-    }
-
-    if (slugAvailable === false) {
-      setResult("Lair subdomain is not available");
-      return;
-    }
-
-    if (!agreedToTerms) {
-      setResult("You must agree to the Terms of Service");
-      return;
-    }
-    
-    startTransition(() => void handleSignup());
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    handlePerformSignup();
+    if (!displayName || !email || !password || !confirmPassword || !workspaceName || !workspaceSlug) {
+      setResultType("error"); setResult("All fields are required"); return;
+    }
+    startTransition(() => void handleSignup());
   };
 
-  const getResultVariant = () => {
-    if (result.includes("created") || result.includes("Redirecting")) {
-      return "success";
-    } else if (result.includes("failed") || result.includes("not match") || result.includes("required") || result.includes("not available") || result.includes("must be at least") || result.includes("must agree")) {
-      return "error";
-    }
-    return "warning";
-  };
+  const canSubmit = !isPending && !!displayName && !!email && !!password && !!confirmPassword
+    && workspaceSlug.length >= 6 && slugAvailable !== false && agreedToTerms;
 
   return (
-    <FantasyBackground variant="adventure">
-      <div className="flex flex-col lg:grid lg:grid-cols-12 min-h-screen relative">
-        
-        {/* Left side - Cave entrance */}
-        <div className="hidden lg:flex lg:col-span-3 xl:col-span-4 relative items-end justify-center pb-8">
-          <CaveEntrance showFlag={true} />
-        </div>
-        
-        {/* Center - Signup Form */}
-        <div className="flex-1 lg:col-span-6 xl:col-span-4 flex items-center justify-center px-4 py-8 lg:py-0">
-          <div className="w-full max-w-md">
+    <>
+      <style>{CSS}</style>
+      <div className="su-page">
+        <div className="su-layout">
 
-            {/* Title Section */}
-            <div className="text-center mb-8">
-              <FantasyTitle size="lg" className="mb-3">
-                Create Your Account
-              </FantasyTitle>
-              <FantasyText variant="primary" className="text-base lg:text-lg">
-                Establish your account and claim your lair
-              </FantasyText>
+          {/* Left — branding */}
+          <div className="su-brand">
+            <div className="su-brand-logo">🔥</div>
+            <div className="su-brand-name">FlareUp</div>
+            <div className="su-brand-tagline">Cloudflare billing visibility.<br />Before the $8,000 surprise.</div>
+            <div className="su-brand-features">
+              <div className="su-feature"><span className="su-feature-dot" />Workers · KV · D1 · R2 · AI</div>
+              <div className="su-feature"><span className="su-feature-dot" />Webhook alerts to Slack, Discord, PagerDuty</div>
+              <div className="su-feature"><span className="su-feature-dot" />Your subdomain, your dashboard</div>
+              <div className="su-feature"><span className="su-feature-dot" />Free — no credit card required</div>
             </div>
+          </div>
 
-            {/* Main Form Card */}
-            <FantasyCard className="p-6 mb-6" glowing={true}>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                
-                {/* USER INFORMATION SECTION */}
-                <div className="space-y-4">
-                  <div className="pb-2 border-b border-amber-700/30">
-                    <h3 className="text-sm font-bold text-amber-200 uppercase tracking-wide">
-                      Your Information
-                    </h3>
+          {/* Right — form */}
+          <div className="su-form-wrap">
+            <div className="su-card">
+              <div className="su-card-top" />
+              <div className="su-card-body">
+
+                <div className="su-title">Create account</div>
+                <div className="su-hint">// free forever · no card required</div>
+
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+
+                  {/* Account info */}
+                  <div className="su-section-label">Account</div>
+
+                  <div className="su-field">
+                    <label className="su-label" htmlFor="displayName">Display name</label>
+                    <input id="displayName" className="su-input" type="text" placeholder="Jane Smith"
+                      value={displayName} onChange={e => setDisplayName(e.target.value)} required autoComplete="name" />
                   </div>
 
-                  {/* Display Name field */}
-                  <div>
-                    <label htmlFor="displayName" className="block text-sm font-medium text-amber-200 mb-2">
-                      Display Name
-                    </label>
-                    <input
-                      id="displayName"
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="John Smith"
-                      className="w-full px-4 py-3 bg-black/50 border border-amber-700/50 rounded-lg text-amber-100 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent backdrop-blur-sm"
-                      suppressHydrationWarning
-                      required
-                    />
-                    <FantasyText variant="secondary" className="text-xs mt-2">
-                      How others will see you
-                    </FantasyText>
+                  <div className="su-field">
+                    <label className="su-label" htmlFor="email">Email</label>
+                    <input id="email" className="su-input" type="email" placeholder="you@example.com"
+                      value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
                   </div>
 
-                  {/* Email field */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-amber-200 mb-2">
-                      Email Address
-                    </label>
-                    <input
-                      id="email"
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="your@email.com"
-                      required
-                      className="w-full px-4 py-3 bg-black/50 border border-amber-700/50 rounded-lg text-amber-100 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent backdrop-blur-sm"
-                      suppressHydrationWarning
-                    />
-                  </div>
-
-                  {/* Password field */}
-                  <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-amber-200 mb-2">
-                      Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="password"
-                        type={showPassword ? "text" : "password"}
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="At least 8 characters"
-                        minLength={8}
-                        required
-                        className="w-full px-4 py-3 pr-12 bg-black/50 border border-amber-700/50 rounded-lg text-amber-100 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent backdrop-blur-sm"
-                        suppressHydrationWarning
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-200 text-sm"
-                      >
-                        {showPassword ? "👁️" : "👁️‍🗨️"}
+                  <div className="su-field">
+                    <label className="su-label" htmlFor="password">Password</label>
+                    <div className="su-input-wrap">
+                      <input id="password" className="su-input su-input--pw" type={showPassword ? "text" : "password"}
+                        placeholder="At least 8 characters" minLength={8} required
+                        value={password} onChange={e => setPassword(e.target.value)} autoComplete="new-password" />
+                      <button type="button" className="su-pw-toggle" onClick={() => setShowPassword(v => !v)}>
+                        {showPassword ? "hide" : "show"}
                       </button>
                     </div>
                   </div>
 
-                  {/* Confirm Password field */}
-                  <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-amber-200 mb-2">
-                      Confirm Password
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="confirmPassword"
-                        type={showConfirmPassword ? "text" : "password"}
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="Repeat your password"
-                        minLength={8}
-                        required
-                        className="w-full px-4 py-3 pr-12 bg-black/50 border border-amber-700/50 rounded-lg text-amber-100 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent backdrop-blur-sm"
-                        suppressHydrationWarning
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-200 text-sm"
-                      >
-                        {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
+                  <div className="su-field">
+                    <label className="su-label" htmlFor="confirmPassword">Confirm password</label>
+                    <div className="su-input-wrap">
+                      <input id="confirmPassword" className="su-input su-input--pw" type={showConfirm ? "text" : "password"}
+                        placeholder="Repeat password" minLength={8} required
+                        value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} autoComplete="new-password" />
+                      <button type="button" className="su-pw-toggle" onClick={() => setShowConfirm(v => !v)}>
+                        {showConfirm ? "hide" : "show"}
                       </button>
                     </div>
                     {password && confirmPassword && password !== confirmPassword && (
-                      <FantasyText variant="secondary" className="text-xs mt-2 text-red-400">
-                        Passwords do not match
-                      </FantasyText>
+                      <div className="su-field-error">// passwords don't match</div>
                     )}
                   </div>
-                </div>
 
-                {/* LAIR INFORMATION SECTION */}
-                <div className="space-y-4">
-                  <div className="pb-2 border-b border-amber-700/30">
-                    <h3 className="text-sm font-bold text-amber-200 uppercase tracking-wide">
-                      Your Lair
-                    </h3>
+                  {/* Workspace */}
+                  <div className="su-section-label" style={{ marginTop: 20 }}>Workspace</div>
+
+                  <div className="su-field">
+                    <label className="su-label" htmlFor="workspaceName">Workspace name</label>
+                    <input id="workspaceName" className="su-input" type="text" placeholder="Acme Corp"
+                      value={workspaceName} onChange={e => setWorkspaceName(e.target.value)} required />
+                    <div className="su-field-hint">// your dashboard display name</div>
                   </div>
 
-                  {/* Lair Name field */}
-                  <div>
-                    <label htmlFor="lairName" className="block text-sm font-medium text-amber-200 mb-2">
-                      Lair Name
-                    </label>
-                    <input
-                      id="lairName"
-                      type="text"
-                      value={lairName}
-                      onChange={(e) => setLairName(e.target.value)}
-                      placeholder="The Dragon's Keep"
-                      className="w-full px-4 py-3 bg-black/50 border border-amber-700/50 rounded-lg text-amber-100 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent backdrop-blur-sm"
-                      suppressHydrationWarning
-                      required
-                    />
-                    <FantasyText variant="secondary" className="text-xs mt-2">
-                      The display name for your lair (can be anything)
-                    </FantasyText>
-                  </div>
-
-                  {/* Lair Subdomain field */}
-                  <div>
-                    <label htmlFor="lairSlug" className="block text-sm font-medium text-amber-200 mb-2">
-                      Lair Subdomain
-                    </label>
-                    <input
-                      id="lairSlug"
-                      type="text"
-                      value={lairSlug}
-                      onChange={(e) => setLairSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                      placeholder="dragons-keep"
-                      minLength={6}
-                      required
-                      className="w-full px-4 py-3 bg-black/50 border border-amber-700/50 rounded-lg text-amber-100 placeholder-amber-400/60 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent backdrop-blur-sm"
-                      suppressHydrationWarning
-                    />
-                    <div className="mt-2 flex items-center justify-between">
-                      <FantasyText variant="secondary" className="text-xs">
-                        Your lair URL: <span className="text-amber-300">{lairSlug || 'your-lair'}.flareup.dev</span>
-                      </FantasyText>
-                      {checkingSlug && (
-                        <span className="text-xs text-amber-400">⏳ Checking...</span>
-                      )}
-                      {slugAvailable === true && lairSlug.length >= 6 && (
-                        <span className="text-xs text-green-400">✅ Available</span>
-                      )}
-                      {slugAvailable === false && (
-                        <span className="text-xs text-red-400">❌ Taken</span>
-                      )}
-                      {lairSlug.length > 0 && lairSlug.length < 6 && (
-                        <span className="text-xs text-yellow-400">⚠️ Too short</span>
-                      )}
-                    </div>
-                    <FantasyText variant="secondary" className="text-xs mt-2">
-                      At least 6 characters • Lowercase letters, numbers, and hyphens only
-                    </FantasyText>
-                  </div>
-                </div>
-
-                {/* ✅ TIER SELECTION SECTION */}
-                <div className="space-y-4">
-                  <div className="pb-2 border-b border-amber-700/30">
-                    <h3 className="text-sm font-bold text-amber-200 uppercase tracking-wide">
-                      Choose Your Tier
-                    </h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3">
-                    {Object.entries(TIERS).map(([key, tier]) => (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSelectedTier(key as 'free' | 'starter' | 'pro')}
-                        className={`
-                          relative p-4 rounded-lg border-2 text-left transition-all
-                          ${selectedTier === key 
-                            ? `${tier.color} bg-amber-900/20` 
-                            : 'border-stone-700 bg-black/30 hover:border-amber-700/50'
-                          }
-                        `}
-                      >
-                        {(tier as any).popular && (
-                          <div className="absolute -top-2 right-4 bg-amber-500 text-stone-900 px-2 py-0.5 rounded text-xs font-bold">
-                            POPULAR
-                          </div>
-                        )}
-                        
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl">{tier.icon}</span>
-                            <div>
-                              <div className="font-bold text-amber-200">{tier.name}</div>
-                              <div className="text-2xl font-bold text-white">
-                                ${tier.price}
-                                {tier.price > 0 && <span className="text-sm text-amber-400/70">/month</span>}
-                              </div>
-                            </div>
-                          </div>
-                          {selectedTier === key && (
-                            <span className="text-green-400 text-xl">✓</span>
-                          )}
-                        </div>
-                        
-                        <ul className="space-y-1 text-xs text-amber-100/80">
-                          {tier.features.map((feature, i) => (
-                            <li key={i} className="flex items-start gap-1">
-                              <span className="text-green-400 mt-0.5">•</span>
-                              <span>{feature}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </button>
-                    ))}
-                  </div>
-
-                  {selectedTier !== 'free' && (
-                    <FantasyText variant="secondary" className="text-xs text-amber-400">
-                      💳 You'll be redirected to secure checkout after creating your account
-                    </FantasyText>
-                  )}
-                </div>
-
-                {/* ✅ TERMS AGREEMENT SECTION */}
-                <div className="space-y-3">
-                  <div className="pb-2 border-b border-amber-700/30">
-                    <h3 className="text-sm font-bold text-amber-200 uppercase tracking-wide">
-                      Terms & Conditions
-                    </h3>
-                  </div>
-
-                  <div className="bg-black/30 border border-amber-700/30 rounded-lg p-4">
-                    <label className="flex items-start gap-3 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={agreedToTerms}
-                        onChange={(e) => setAgreedToTerms(e.target.checked)}
-                        className="mt-1 w-4 h-4 rounded border-amber-700 bg-black/50 text-amber-500 focus:ring-2 focus:ring-amber-500"
-                        required
-                      />
-                      <span className="text-sm text-amber-100 flex-1">
-                        I have read and agree to the{' '}
-                        <a 
-                          href="/terms" 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-amber-300 hover:text-amber-100 underline decoration-amber-700 underline-offset-2 hover:decoration-amber-500 transition-colors font-medium"
-                        >
-                          Terms of Service
-                        </a>
-                        {' '}and{' '}
-                        <a 
-                          href="/privacy" 
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-amber-300 hover:text-amber-100 underline decoration-amber-700 underline-offset-2 hover:decoration-amber-500 transition-colors font-medium"
-                        >
-                          Privacy Policy
-                        </a>
+                  <div className="su-field">
+                    <label className="su-label" htmlFor="workspaceSlug">
+                      Workspace URL
+                      <span className="su-slug-status">
+                        {checkingSlug && <span className="su-slug-checking">// checking…</span>}
+                        {!checkingSlug && slugAvailable === true  && workspaceSlug.length >= 6 && <span className="su-slug-ok">// available ✓</span>}
+                        {!checkingSlug && slugAvailable === false && <span className="su-slug-taken">// taken ✗</span>}
+                        {!checkingSlug && workspaceSlug.length > 0 && workspaceSlug.length < 6 && <span className="su-slug-short">// too short</span>}
                       </span>
                     </label>
+                    <div className="su-slug-wrap">
+                      <input id="workspaceSlug" className="su-input" type="text" placeholder="acme-corp"
+                        minLength={6} required
+                        value={workspaceSlug}
+                        onChange={e => setWorkspaceSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))} />
+                      <div className="su-slug-preview">
+                        {workspaceSlug || 'your-workspace'}<span style={{ color: "var(--text-3)" }}>.flareup.dev</span>
+                      </div>
+                    </div>
+                    <div className="su-field-hint">// lowercase letters, numbers, hyphens · min 6 chars</div>
                   </div>
+
+                  {/* Terms */}
+                  <label className="su-terms">
+                    <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)} required />
+                    <span>
+                      I agree to the{" "}
+                      <a href="/terms" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+                      {" "}and{" "}
+                      <a href="/privacy" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+                    </span>
+                  </label>
+
+                  {result && (
+                    <div className={`su-result ${resultType}`}>{result}</div>
+                  )}
+
+                  <button type="submit" className="su-submit" disabled={!canSubmit}>
+                    {isPending ? "// creating account…" : "Create account →"}
+                  </button>
+                </form>
+
+                <div className="su-signin">
+                  Already have an account? <a href="/user/login">Sign in →</a>
                 </div>
 
-                {/* Submit button */}
-                <FantasyButton 
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  disabled={
-                    isPending || 
-                    lairSlug.length < 6 || 
-                    slugAvailable === false || 
-                    !displayName || 
-                    !email || 
-                    !password || 
-                    !confirmPassword || 
-                    !lairName || 
-                    !lairSlug ||
-                    !agreedToTerms
-                  }
-                  className="w-full"
-                >
-                  {isPending 
-                    ? "Creating your account..." 
-                    : selectedTier === 'free'
-                    ? "🏰 Create Free Account"
-                    : `🏰 Create Account & Subscribe ($${TIERS[selectedTier].price}/mo)`
-                  }
-                </FantasyButton>
-              </form>
-
-              {/* Link to sign in */}
-              <div className="mt-6 text-center text-white pointer-events-auto">
-                Already have an account?{" "}
-                <a 
-                  href="/user/login" 
-                  className="text-amber-300 hover:text-amber-100 underline decoration-amber-700 underline-offset-2 hover:decoration-amber-500 transition-colors font-medium"
-                >
-                  Sign in
-                </a>
               </div>
-            </FantasyCard>
-
-            {/* Result message */}
-            {result && (
-              <FantasyCard className={`p-4 text-sm ${
-                getResultVariant() === "success" 
-                  ? "bg-green-900/30 border-green-700/50 text-green-200" 
-                  : getResultVariant() === "error"
-                  ? "bg-red-900/30 border-red-700/50 text-red-200"
-                  : "bg-yellow-900/30 border-yellow-700/50 text-yellow-200"
-              }`}>
-                <div className="flex items-start space-x-2">
-                  <span className="text-lg">
-                    {getResultVariant() === "success" ? "✨" : getResultVariant() === "error" ? "⚠️" : "ℹ️"}
-                  </span>
-                  <div className="flex-1">{result}</div>
-                </div>
-              </FantasyCard>
-            )}
-
-            {/* Footer link */}
-            <div className="mt-6 text-center">
-              <FantasyText variant="secondary" className="text-sm">
-                Need help? Return to the{" "}
-                <a href="/" className="text-amber-300 hover:text-amber-100 underline decoration-amber-700 underline-offset-2 hover:decoration-amber-500 transition-colors">
-                  home page
-                </a>
-              </FantasyText>
             </div>
           </div>
-        </div>
-        
-        {/* Right side - Wizard Study */}
-        <div className="lg:col-span-3 xl:col-span-4 relative flex items-end justify-center pb-4 lg:pb-8">
-          
-          {/* Mobile: Simple minimal study */}
-          <div className="lg:hidden relative w-full max-w-xs h-32">
-            <WizardStudy complexity="simple" />
-          </div>
-          
-          {/* Desktop: Full study */}
-          <div className="hidden lg:block relative w-full">
-            <WizardStudy complexity="full" />
-          </div>
+
         </div>
       </div>
-    </FantasyBackground>
+    </>
   );
 }
+
+const CSS = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --orange: #e85d04; --orange-l: #f48c06;
+    --green: #22c55e; --red: #ef4444;
+    --bg: #060a06; --bg-2: #0a0f0a; --bg-3: #0f160f;
+    --border: rgba(255,255,255,0.05); --border-o: rgba(232,93,4,0.2);
+    --text: #e8f0e8; --text-2: #8a9e8a; --text-3: #3a4e3a;
+    --mono: 'Share Tech Mono', monospace;
+    --body: 'Barlow', sans-serif;
+  }
+  .su-page {
+    min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: var(--body); display: flex; align-items: center; justify-content: center;
+    padding: 40px 24px;
+  }
+  .su-page--centered { flex-direction: column; }
+  .su-layout {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 60px; max-width: 900px; width: 100%; align-items: start;
+  }
+
+  /* Brand */
+  .su-brand { padding-top: 40px; }
+  .su-brand-logo { font-size: 40px; margin-bottom: 12px; }
+  .su-brand-name {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 32px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--orange-l); margin-bottom: 12px;
+  }
+  .su-brand-tagline {
+    font-size: 15px; color: var(--text-2); line-height: 1.6; margin-bottom: 32px;
+  }
+  .su-brand-features { display: flex; flex-direction: column; gap: 10px; }
+  .su-feature { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em; }
+  .su-feature-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--orange); flex-shrink: 0; }
+
+  /* Card */
+  .su-card { background: var(--bg-2); border: 1px solid var(--border-o); border-radius: 4px; overflow: hidden; }
+  .su-card-top { height: 2px; background: linear-gradient(90deg, #dc2626, #e85d04, #f48c06); }
+  .su-card-body { padding: 28px; }
+
+  .su-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 22px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text); margin-bottom: 4px;
+  }
+  .su-hint { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-bottom: 24px; letter-spacing: 0.06em; }
+
+  .su-section-label {
+    font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--text-3); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .su-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+  .su-field { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+  .su-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-2); display: flex; align-items: center; justify-content: space-between;
+  }
+  .su-input {
+    background: var(--bg-3); border: 1px solid var(--border-o); border-radius: 3px;
+    padding: 10px 13px; font-family: var(--mono); font-size: 12px; color: var(--text);
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s; width: 100%;
+  }
+  .su-input::placeholder { color: var(--text-3); }
+  .su-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,93,4,0.08); }
+  .su-input--pw { padding-right: 56px; }
+  .su-input-wrap { position: relative; }
+  .su-pw-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-3); cursor: pointer;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    transition: color 0.15s; padding: 4px;
+  }
+  .su-pw-toggle:hover { color: var(--text-2); }
+  .su-field-hint { font-family: var(--mono); font-size: 10px; color: var(--text-3); letter-spacing: 0.04em; }
+  .su-field-error { font-family: var(--mono); font-size: 10px; color: var(--red); letter-spacing: 0.04em; }
+
+  /* Slug */
+  .su-slug-status { font-size: 10px; font-weight: 400; letter-spacing: 0.06em; }
+  .su-slug-checking { color: var(--orange-l); }
+  .su-slug-ok    { color: var(--green); }
+  .su-slug-taken { color: var(--red); }
+  .su-slug-short { color: var(--orange-l); }
+  .su-slug-preview {
+    font-family: var(--mono); font-size: 10px; color: var(--text-2);
+    padding: 6px 13px; background: var(--bg); border: 1px solid var(--border);
+    border-top: none; border-radius: 0 0 3px 3px; letter-spacing: 0.04em;
+  }
+  .su-slug-wrap { display: flex; flex-direction: column; }
+  .su-slug-wrap .su-input { border-radius: 3px 3px 0 0; }
+
+  /* Terms */
+  .su-terms {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-family: var(--mono); font-size: 11px; color: var(--text-3);
+    cursor: pointer; margin: 16px 0; line-height: 1.6; letter-spacing: 0.03em;
+  }
+  .su-terms input { margin-top: 2px; accent-color: var(--orange); cursor: pointer; flex-shrink: 0; }
+  .su-terms a { color: var(--orange-l); text-decoration: none; }
+  .su-terms a:hover { text-decoration: underline; }
+
+  /* Result */
+  .su-result {
+    font-family: var(--mono); font-size: 11px; padding: 10px 13px;
+    border-radius: 3px; margin-bottom: 12px; letter-spacing: 0.04em;
+  }
+  .su-result.error   { color: var(--red);   background: rgba(220,38,38,0.06);  border: 1px solid rgba(220,38,38,0.2); }
+  .su-result.success { color: var(--green); background: rgba(34,197,94,0.06);  border: 1px solid rgba(34,197,94,0.2); }
+
+  /* Submit */
+  .su-submit {
+    width: 100%; padding: 13px;
+    background: linear-gradient(135deg, #dc2626, #e85d04);
+    border: none; border-radius: 3px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #fff; cursor: pointer;
+    box-shadow: 0 2px 20px rgba(232,93,4,0.2);
+    transition: all 0.2s;
+  }
+  .su-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 32px rgba(232,93,4,0.35); }
+  .su-submit:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .su-signin {
+    margin-top: 20px; text-align: center;
+    font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em;
+  }
+  .su-signin a { color: var(--orange-l); text-decoration: none; }
+  .su-signin a:hover { text-decoration: underline; }
+
+  @media (max-width: 720px) {
+    .su-layout { grid-template-columns: 1fr; gap: 32px; }
+    .su-brand { padding-top: 0; }
+    .su-brand-features { display: none; }
+  }
+`;

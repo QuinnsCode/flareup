@@ -40,6 +40,10 @@ model User {
   members     Member[]
   invitations Invitation[]
   apikeys     Apikey[]
+  cloudflareTokens CloudflareToken[]
+  scanResults    ScanResult[]
+  alertHistory   AlertHistory[]
+  serviceBudgets ServiceBudget[]
 
   stripeSubscription  StripeSubscription?
   squeezeSubscription SqueezeSubscription?
@@ -125,6 +129,9 @@ model Organization {
   invitations Invitation[]
   teams       Team[]
   apikeys     Apikey[]
+  scanResults    ScanResult[]
+  alertHistory   AlertHistory[]
+  serviceBudgets ServiceBudget[]
 
   @@map("organization")
 }
@@ -266,4 +273,124 @@ model SqueezeSubscription {
   @@index([status])
   @@index([lemonSqueezySubscriptionId])
   @@map("squeeze_subscriptions")
+}
+
+model EmailSignup {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([email])
+  @@map("email_signup")
+}
+
+model CloudflareToken {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  encryptedToken String
+  encryptedDek   String
+  accountId      String  // CF account ID — plain, not sensitive
+  name           String? // "Personal", "Client - Acme Co", etc
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([userId, accountId])
+  @@index([userId])
+  @@map("cloudflare_token")
+}
+
+// Add these models to schema.prisma
+
+model ScanResult {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String   @map("account_id")
+
+  // Costs
+  costWorkers   Float    @default(0) @map("cost_workers")
+  costWorkersAI Float    @default(0) @map("cost_workers_ai")
+  costKV        Float    @default(0) @map("cost_kv")
+  costD1        Float    @default(0) @map("cost_d1")
+  costR2        Float    @default(0) @map("cost_r2")
+  costDO        Float    @default(0) @map("cost_do")
+  costQueues    Float    @default(0) @map("cost_queues")
+  costTotal     Float    @default(0) @map("cost_total")
+  costProjected Float    @default(0) @map("cost_projected")
+
+  // Raw usage
+  workersRequests   Int?  @map("workers_requests")
+  workersAINeurons  Int?  @map("workers_ai_neurons")
+  kvReads           Int?  @map("kv_reads")
+  kvWrites          Int?  @map("kv_writes")
+  d1RowsRead        Int?  @map("d1_rows_read")
+  d1RowsWritten     Int?  @map("d1_rows_written")
+  r2ClassAOps       Int?  @map("r2_class_a_ops")
+  r2ClassBOps       Int?  @map("r2_class_b_ops")
+  r2StorageGB       Float? @map("r2_storage_gb")
+  doRequests        Int?  @map("do_requests")
+  doDurationMs      Int?  @map("do_duration_ms")
+  queueOperations   Int?  @map("queue_operations")
+
+  scannedAt     DateTime @default(now()) @map("scanned_at")
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([scannedAt])
+  @@map("scan_result")
+}
+
+model AlertHistory {
+  id            String   @id @default(uuid())
+  orgId         String   @map("org_id")
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accountId     String   @map("account_id")
+
+  alertKey      String   @map("alert_key")   // "budget_75" | "workers_ai_50" | "spike"
+  alertType     String   @map("alert_type")  // "budget" | "spike" | "service_budget"
+  severity      String                        // "info" | "warning" | "critical" | "nuclear"
+  service       String?                       // "workers_ai" | null for overall
+
+  costAtFire      Float  @map("cost_at_fire")
+  projectedAtFire Float  @map("projected_at_fire")
+  budgetAtFire    Float  @map("budget_at_fire")
+  pctAtFire       Float  @map("pct_at_fire")
+
+  deliveryEmail   Boolean @default(false) @map("delivery_email")
+  deliveryWebhook Boolean @default(false) @map("delivery_webhook")
+  acknowledgedAt  DateTime? @map("acknowledged_at")
+  snoozedUntil    DateTime? @map("snoozed_until")
+
+  firedAt       DateTime @default(now()) @map("fired_at")
+
+  @@index([orgId])
+  @@index([userId])
+  @@index([firedAt])
+  @@map("alert_history")
+}
+
+model ServiceBudget {
+  id            String   @id @default(uuid())
+  userId        String   @map("user_id")
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orgId         String   @map("org_id")
+  organization  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  service       String   // "workers_ai" | "workers_kv" | "workers_r2" etc
+  monthlyBudget Float    @map("monthly_budget")
+  enabled       Boolean  @default(true)
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt      @map("updated_at")
+
+  @@unique([userId, orgId, service])
+  @@index([userId])
+  @@index([orgId])
+  @@map("service_budget")
 }

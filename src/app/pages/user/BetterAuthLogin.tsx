@@ -1,296 +1,189 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import { authClient } from "@/lib/auth-client";
 
 interface BetterAuthLoginProps {
   organizationName?: string;
   showOrgWarning?: boolean;
-  forceSignUp?: boolean;
-  onAuthSuccess?: (user: any) => void;
-  redirectOnSuccess?: boolean;
   redirectPath?: string;
-  showDevTools?: boolean;
-  className?: string;
 }
 
-export default function BetterAuthLogin({ 
-  organizationName, 
-  showOrgWarning, 
-  forceSignUp = false,
-  onAuthSuccess,
-  redirectOnSuccess = true,
-  redirectPath = "/",
-  showDevTools = true,
-  className = "max-w-[400px] w-full mx-auto px-10"
+export default function BetterAuthLogin({
+  organizationName,
+  showOrgWarning,
+  redirectPath = "/dashboard",
 }: BetterAuthLoginProps) {
-  const [email, setEmail] = useState("");
+  const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
-  const [result, setResult] = useState("");
-  const [isSignUp, setIsSignUp] = useState(forceSignUp);
+  const [showPw, setShowPw]     = useState(false);
+  const [result, setResult]     = useState("");
+  const [ok, setOk]             = useState(false);
   const [isPending, startTransition] = useTransition();
-  const [isHydrated, setIsHydrated] = useState(false);
-
-  useEffect(() => {
-    setIsHydrated(true);
-  }, []);
-
-  const handleAuthSuccess = (user: any, message: string) => {
-    setResult(message);
-
-    if (onAuthSuccess) {
-      onAuthSuccess(user);
-    } else if (redirectOnSuccess) {
-      setTimeout(() => {
-        window.location.pathname = redirectPath;
-      }, 1500);
-    }
-  };
-
-  const handleSignIn = async () => {
-    try {
-      setResult("");
-      const { data, error } = await authClient.signIn.email({
-        email,
-        password,
-      });
-
-      if (error) {
-        setResult(`Login failed: ${error.message}`);
-        return;
-      }
-
-      handleAuthSuccess(data?.user, "Login successful!");
-    } catch (err) {
-      setResult(`Login failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  };
-
-  const handleSignUp = async () => {
-    try {
-      setResult("");
-
-      const { data, error } = await authClient.signUp.email({
-        email,
-        password,
-        name,
-      });
-
-      if (error) {
-        setResult(`Sign up failed: ${error.message}`);
-        return;
-      }
-
-      if (redirectOnSuccess || onAuthSuccess) {
-        handleAuthSuccess(data?.user, "Account created successfully!");
-      } else {
-        setResult("Account created successfully! You can now sign in.");
-        setIsSignUp(false);
-        setName("");
-      }
-    } catch (err) {
-      setResult(`Sign up failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    startTransition(() => {
-      if (isSignUp) {
-        void handleSignUp();
-      } else {
-        void handleSignIn();
+    startTransition(async () => {
+      setResult("");
+      try {
+        const { data, error } = await authClient.signIn.email({
+          email,
+          password,
+          fetchOptions: {
+            onSuccess: () => {
+              window.location.href = "/dashboard";
+            }
+          }
+        });
+        if (error) { setResult(error.message ?? "Login failed"); return; }
+        setOk(true);
+        setResult("// authenticated ✓ — redirecting…");
+      } catch (err) {
+        setResult(err instanceof Error ? err.message : "Login failed");
       }
     });
   };
 
-  const getCurrentUser = async () => {
-    try {
-      const session = await authClient.getSession();
-      if (session.data) {
-        setResult(`Current user: ${session.data.user.email} (${session.data.user.role || 'user'})`);
-      } else {
-        setResult("No active session");
-      }
-    } catch (err) {
-      setResult(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  };
-
-  const handleSignOut = async () => {
-    try {
-      await authClient.signOut();
-      setResult("Signed out successfully!");
-      setEmail("");
-      setPassword("");
-      setName("");
-    } catch (err) {
-      setResult(`Sign out failed: ${err instanceof Error ? err.message : "Unknown error"}`);
-    }
-  };
-
-  const getTitle = () => {
-    if (!isHydrated) {
-      return isSignUp ? "Sign Up" : "Sign In";
-    }
-    return organizationName 
-      ? `${isSignUp ? "Join" : "Sign in to"} ${organizationName}` 
-      : (isSignUp ? "Sign Up" : "Sign In");
-  };
-
-  const getSubtitle = () => {
-    if (showOrgWarning && organizationName) {
-      return `Create your account to set up the "${organizationName}" organization.`;
-    }
-    return isSignUp 
-      ? "Create a new account below." 
-      : "Enter your credentials below to sign in.";
-  };
-
   return (
-    <div className={className}>
-      {showOrgWarning && organizationName && (
-        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-              </svg>
+    <>
+      <style>{CSS}</style>
+      <div className="auth-page">
+        <div className="auth-card">
+          <div className="auth-card-top" />
+          <div className="auth-card-body">
+
+            <div className="auth-logo">🔥</div>
+            <div className="auth-title">
+              {organizationName ? `Sign in to ${organizationName}` : "Sign in"}
             </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">
-                Organization Not Found
-              </h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p>The organization "{organizationName}" doesn't exist yet. Sign up to create it!</p>
+            <div className="auth-hint">// flareup.dev — cloudflare cost monitoring</div>
+
+            {showOrgWarning && organizationName && (
+              <div className="auth-warn">
+                // org "{organizationName}" not found — sign in to access your workspace
               </div>
+            )}
+
+            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="email">Email</label>
+                <input id="email" className="auth-input" type="email" placeholder="you@example.com"
+                  value={email} onChange={e => setEmail(e.target.value)} required autoComplete="email" />
+              </div>
+
+              <div className="auth-field">
+                <label className="auth-label" htmlFor="password">
+                  Password
+                  <a href="/user/forgot-password" className="auth-label-link">Forgot?</a>
+                </label>
+                <div className="auth-input-wrap">
+                  <input id="password" className="auth-input auth-input--pw"
+                    type={showPw ? "text" : "password"} placeholder="Your password"
+                    value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
+                  <button type="button" className="auth-pw-toggle" onClick={() => setShowPw(v => !v)}>
+                    {showPw ? "hide" : "show"}
+                  </button>
+                </div>
+              </div>
+
+              {result && <div className={`auth-result ${ok ? "ok" : "err"}`}>{result}</div>}
+
+              <button type="submit" className="auth-submit" disabled={isPending}>
+                {isPending ? "// signing in…" : "Sign in →"}
+              </button>
+            </form>
+
+            <div className="auth-footer-link">
+              No account? <a href="/user/signup">Create one →</a>
             </div>
           </div>
         </div>
-      )}
-      
-      <h1 className="text-center text-2xl font-bold mb-2">
-        {getTitle()}
-      </h1>
-      <p className="py-6 text-gray-600 text-center">
-        {getSubtitle()}
-      </p>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {isSignUp && (
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-              Name
-            </label>
-            <input
-              id="name"
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              suppressHydrationWarning
-            />
-          </div>
-        )}
-
-        <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="your@email.com"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            suppressHydrationWarning
-          />
-        </div>
-
-        <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Your password"
-            required
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            suppressHydrationWarning
-          />
-        </div>
-
-        <button 
-          type="submit"
-          disabled={isPending}
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded-md hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          suppressHydrationWarning
-        >
-          {isPending ? "..." : (isSignUp ? "Create Account" : "Sign In")}
-        </button>
-      </form>
-
-      {!forceSignUp && (
-        <div className="mt-4 text-center">
-          <button
-            type="button"
-            onClick={() => {
-              setIsSignUp(!isSignUp);
-              setResult("");
-            }}
-            className="text-blue-500 hover:text-blue-600 text-sm"
-          >
-            {isSignUp 
-              ? "Already have an account? Sign in" 
-              : "Don't have an account? Sign up"
-            }
-          </button>
-        </div>
-      )}
-
-      {showDevTools && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <div className="flex flex-col gap-2">
-            <button
-              type="button"
-              onClick={getCurrentUser}
-              className="text-sm bg-gray-100 text-gray-700 py-1 px-3 rounded hover:bg-gray-200"
-            >
-              Check Current Session
-            </button>
-            <button
-              type="button"
-              onClick={handleSignOut}
-              className="text-sm bg-red-100 text-red-700 py-1 px-3 rounded hover:bg-red-200"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
-      )}
-
-      {result && (
-        <div className={`mt-4 p-3 rounded text-sm ${
-          result.includes("successful") 
-            ? "bg-green-100 text-green-700 border border-green-200" 
-            : result.includes("failed") || result.includes("Error")
-            ? "bg-red-100 text-red-700 border border-red-200"
-            : "bg-blue-100 text-blue-700 border border-blue-200"
-        }`}>
-          {result}
-        </div>
-      )}
-    </div>
+      </div>
+    </>
   );
 }
 
 export function LoginPage() {
   return <BetterAuthLogin />;
 }
+
+const CSS = `
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --orange: #e85d04; --orange-l: #f48c06;
+    --green: #22c55e; --red: #ef4444;
+    --bg: #060a06; --bg-2: #0a0f0a; --bg-3: #0f160f;
+    --border: rgba(255,255,255,0.05); --border-o: rgba(232,93,4,0.2);
+    --text: #e8f0e8; --text-2: #8a9e8a; --text-3: #3a4e3a;
+    --mono: 'Share Tech Mono', monospace;
+  }
+  body { background: var(--bg); }
+  .auth-page {
+    min-height: 100vh; background: var(--bg); display: flex;
+    align-items: center; justify-content: center; padding: 40px 24px;
+  }
+  .auth-card {
+    width: 100%; max-width: 420px;
+    background: var(--bg-2); border: 1px solid var(--border-o);
+    border-radius: 4px; overflow: hidden;
+  }
+  .auth-card-top { height: 2px; background: linear-gradient(90deg, #dc2626, #e85d04, #f48c06); }
+  .auth-card-body { padding: 32px; }
+  .auth-logo { font-size: 32px; margin-bottom: 12px; }
+  .auth-title {
+    font-family: 'Barlow Condensed', sans-serif;
+    font-size: 24px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--text); margin-bottom: 4px;
+  }
+  .auth-hint { font-family: var(--mono); font-size: 11px; color: var(--text-3); margin-bottom: 24px; }
+  .auth-warn {
+    font-family: var(--mono); font-size: 11px; color: var(--orange-l);
+    background: rgba(232,93,4,0.06); border: 1px solid var(--border-o);
+    border-radius: 3px; padding: 10px 12px; margin-bottom: 16px;
+  }
+  .auth-field { display: flex; flex-direction: column; gap: 5px; }
+  .auth-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--text-2); display: flex; align-items: center; justify-content: space-between;
+  }
+  .auth-label-link { font-size: 10px; color: var(--orange-l); text-decoration: none; text-transform: none; letter-spacing: 0; }
+  .auth-label-link:hover { text-decoration: underline; }
+  .auth-input {
+    background: var(--bg-3); border: 1px solid var(--border-o); border-radius: 3px;
+    padding: 10px 13px; font-family: var(--mono); font-size: 12px; color: var(--text);
+    outline: none; transition: border-color 0.15s, box-shadow 0.15s; width: 100%;
+  }
+  .auth-input::placeholder { color: var(--text-3); }
+  .auth-input:focus { border-color: var(--orange); box-shadow: 0 0 0 3px rgba(232,93,4,0.08); }
+  .auth-input--pw { padding-right: 56px; }
+  .auth-input-wrap { position: relative; }
+  .auth-pw-toggle {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-3); cursor: pointer;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    transition: color 0.15s;
+  }
+  .auth-pw-toggle:hover { color: var(--text-2); }
+  .auth-result {
+    font-family: var(--mono); font-size: 11px; padding: 10px 12px;
+    border-radius: 3px; letter-spacing: 0.04em;
+  }
+  .auth-result.ok  { color: var(--green); background: rgba(34,197,94,0.06);  border: 1px solid rgba(34,197,94,0.2); }
+  .auth-result.err { color: var(--red);   background: rgba(220,38,38,0.06);  border: 1px solid rgba(220,38,38,0.2); }
+  .auth-submit {
+    width: 100%; padding: 13px; background: linear-gradient(135deg, #dc2626, #e85d04);
+    border: none; border-radius: 3px;
+    font-family: 'Barlow Condensed', sans-serif; font-weight: 700;
+    font-size: 14px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: #fff; cursor: pointer; box-shadow: 0 2px 20px rgba(232,93,4,0.2);
+    transition: all 0.2s;
+  }
+  .auth-submit:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 32px rgba(232,93,4,0.35); }
+  .auth-submit:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+  .auth-footer-link {
+    margin-top: 20px; text-align: center;
+    font-family: var(--mono); font-size: 11px; color: var(--text-3); letter-spacing: 0.06em;
+  }
+  .auth-footer-link a { color: var(--orange-l); text-decoration: none; }
+  .auth-footer-link a:hover { text-decoration: underline; }
+`;

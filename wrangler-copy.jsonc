@@ -37,7 +37,7 @@
 	},
 	"vars": {
 	  "BETTER_AUTH_URL": "https://CHANGE_THIS_VALUE.com",
-	  "PRIMARY_DOMAIN": "CHANGE_THIS_VALUE.com"
+	  "APP_URL": "CHANGE_THIS_VALUE.com"
 	},
 	"migrations": [
 	  {
